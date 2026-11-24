@@ -12,6 +12,7 @@
 #   rotate   optional degrees counter-clockwise (90 / 180 / 270)
 #   title    optional override for the patent title (some OCR'd titles are garbage)
 #   inventor optional override / addition when Google lists none
+#   year     optional override for the year shown (OCR can pick up the filing date)
 #   strip_header  drop the lone printed header line on modern sheets (default true)
 #   paper    gray value above which pixels become white paper (default 185)
 #   despeckle median-filter size for scan specks (default 3, 0 = off)
@@ -121,3 +122,197 @@ sheet = 3
 [[wallpaper]]
 patent = "US6004596"
 sheet = 2
+
+# --- added in the 50-wallpaper expansion (most fetched from USPTO PDFs) ---
+
+[[wallpaper]]
+patent = "US1042940A"
+strip_header = false
+sheet = 0
+crop = [0.0, 0.195, 1.0, 0.76]
+inventor = "John H. McConnell"
+
+[[wallpaper]]
+patent = "US6368227"
+sheet = 0
+
+[[wallpaper]]
+patent = "US560351A"
+strip_header = false
+sheet = 0
+crop = [0.06, 0.19, 0.86, 0.785]
+
+[[wallpaper]]
+patent = "US5255452A"
+sheet = 2
+inventor = "Michael J. Jackson, Michael L. Bush"
+
+[[wallpaper]]
+patent = "US1448235A"
+strip_header = false
+sheet = 0
+crop = [0.0, 0.235, 1.0, 0.83]
+
+[[wallpaper]]
+patent = "US6637447B2"
+sheet = 1
+
+[[wallpaper]]
+patent = "US221855A"
+strip_header = false
+sheet = 0
+crop = [0.08, 0.185, 1.0, 0.755]
+title = "Improvement in fire-escapes"
+
+[[wallpaper]]
+patent = "US4429685A"
+sheet = 1
+inventor = "Timothy G. Zell"
+
+[[wallpaper]]
+patent = "US3552388A"
+sheet = 1
+title = "Baby patting machine"
+inventor = "Thomas V. Zelenka"
+year = 1971
+
+[[wallpaper]]
+patent = "US1826A"
+strip_header = false
+sheet = 0
+crop = [0.0, 0.18, 1.0, 0.8]
+title = "Mode of making hats buoyant"
+inventor = "S. W. White"
+
+[[wallpaper]]
+patent = "US6293280B1"
+sheet = 2
+title = "Kissing shield"
+inventor = "Deloris Gray Wood"
+
+[[wallpaper]]
+patent = "US5356330"
+sheet = 0
+
+[[wallpaper]]
+patent = "US741669A"
+strip_header = false
+sheet = 0
+crop = [0.0, 0.13, 1.0, 0.735]
+
+[[wallpaper]]
+patent = "US5934226A"
+sheet = 1
+
+[[wallpaper]]
+patent = "US6604245B1"
+sheet = 3
+title = "Leaf gathering trousers"
+inventor = "Paul Frederic Kinnier"
+
+[[wallpaper]]
+patent = "US268693A"
+strip_header = false
+sheet = 0
+crop = [0.0, 0.165, 1.0, 0.78]
+title = "Device for indicating life in buried persons"
+inventor = "John G. Krichbaum"
+
+[[wallpaper]]
+patent = "US8539910B1"
+sheet = 1
+
+[[wallpaper]]
+patent = "US3771192A"
+sheet = 1
+
+[[wallpaper]]
+patent = "US426723A"
+strip_header = false
+sheet = 0
+crop = [0.0, 0.195, 1.0, 0.81]
+
+[[wallpaper]]
+patent = "US10952487B2"
+sheet = 1
+title = "Beverage dispensing umbrella headwear"
+
+[[wallpaper]]
+patent = "US5901666A"
+sheet = 1
+title = "Pet display clothing"
+inventor = "Brice Belisle"
+
+[[wallpaper]]
+patent = "US1370316A"
+strip_header = false
+sheet = 0
+crop = [0.0, 0.215, 1.0, 0.81]
+
+[[wallpaper]]
+patent = "US6564394B2"
+sheet = 6
+
+[[wallpaper]]
+patent = "US4986433A"
+sheet = 1
+crop = [0.0, 0.10, 1.0, 1.0]
+title = "Crispy cereal serving piece"
+inventor = "Alton A. Davis"
+
+[[wallpaper]]
+patent = "US118435A"
+strip_header = false
+sheet = 0
+crop = [0.0, 0.08, 1.0, 0.79]
+title = "Creeping doll"
+inventor = "George Pemberton Clarke"
+
+[[wallpaper]]
+patent = "US6941897B2"
+sheet = 4
+
+[[wallpaper]]
+patent = "US5996127A"
+sheet = 0
+crop = [0.0, 0.55, 1.0, 1.0]
+title = "Wearable device for feeding and observing birds"
+
+[[wallpaper]]
+patent = "US441911A"
+strip_header = false
+sheet = 0
+crop = [0.0, 0.165, 0.86, 0.76]
+
+[[wallpaper]]
+patent = "US6904612B2"
+sheet = 1
+title = "Weather and climate adaptive Halloween costume"
+
+[[wallpaper]]
+patent = "US5566950A"
+sheet = 1
+
+[[wallpaper]]
+patent = "US6469A"
+strip_header = false
+sheet = 0
+crop = [0.0, 0.13, 1.0, 0.9]
+
+[[wallpaper]]
+patent = "US6368313B1"
+sheet = 1
+crop = [0.0, 0.0, 1.0, 0.5]
+
+[[wallpaper]]
+patent = "US4498586A"
+sheet = 1
+crop = [0.0, 0.08, 1.0, 1.0]
+
+[[wallpaper]]
+patent = "US5826678A"
+sheet = 1
+
+[[wallpaper]]
+patent = "US6612440B1"
+sheet = 1

@@ -54,6 +54,16 @@ make build      # render output/{2bpp,gray-2000,preview}/ and output/contact-she
   inventors, and saves every full-resolution drawing sheet to
   `cache/<number>/sheet-NN.png`. Run `python src/fetch.py US1234567` to preview
   any patent's title and sheet count before adding it.
+- When Google Patents refuses (it rate-limits after a burst of requests),
+  `src/uspto.py` takes over for the rest of the run. It downloads the USPTO's
+  full-document PDF, which is one scanned image per page, and saves every page
+  as a sheet: modern patents have the front page first, then the drawings, then
+  the text, and old patents have the drawings first. The PDFs carry no text, so
+  on macOS the title, inventors, and year are read off the scans with the Vision
+  framework (`src/ocr.swift`, compiled on first use). OCR is good but not
+  perfect, so check the captions and use the `title`, `inventor`, and `year`
+  overrides in `patents.toml` where needed. USPTO scans have wider margins than
+  Google's images, so old sheets usually need a tighter `crop`.
 - `src/build.py` processes each entry in `patents.toml`:
   1. Optional manual crop and rotation.
   2. Paper cleanup: autocontrast, then pixels lighter than the `paper` threshold
@@ -97,6 +107,9 @@ To target a different device, change `[device]`.
 
 ## The set
 
+50 wallpapers.
+
+
 | Patent | Year | Title |
 |---|---|---|
 | US 6,293,874 | 2001 | User-operated amusement apparatus for kicking the user's buttocks |
@@ -114,5 +127,40 @@ To target a different device, change `[device]`.
 | US 81,437 | 1868 | Improved burial-case (coffin with an escape bell) |
 | US 4,984,302 | 1991 | Nose-worn air filter |
 | US 6,004,596 | 1999 | Sealed crustless sandwich |
+| US 1,042,940 | 1912 | Mustache-guard |
+| US 6,368,227 | 2002 | Method of swinging on a swing (granted to a five-year-old) |
+| US 560,351 | 1896 | Device for producing dimples |
+| US 5,255,452 | 1993 | Method and means for creating anti-gravity illusion (Michael Jackson's lean) |
+| US 1,448,235 | 1923 | Portable baby cage (hangs out the window) |
+| US 6,637,447 | 2003 | Beerbrella |
+| US 221,855 | 1879 | Improvement in fire-escapes (the parachute hat) |
+| US 4,429,685 | 1984 | Surgical procedure (for making unicorns) |
+| US 3,552,388 | 1971 | Baby patting machine |
+| US 1,826 | 1840 | Mode of making hats buoyant |
+| US 6,293,280 | 2001 | Kissing shield |
+| US 5,356,330 | 1994 | Apparatus for simulating a "high five" |
+| US 741,669 | 1903 | Antikicking device and shield (for cows) |
+| US 5,934,226 | 1999 | Bird diaper |
+| US 6,604,245 | 2003 | Leaf gathering trousers |
+| US 268,693 | 1882 | Device for indicating life in buried persons |
+| US 8,539,910 | 2013 | User-mounted hummingbird feeder |
+| US 3,771,192 | 1973 | Combination toy dog and vacuum cleaner |
+| US 426,723 | 1890 | Mustache-guard |
+| US 10,952,487 | 2021 | Beverage dispensing umbrella headwear |
+| US 5,901,666 | 1999 | Pet display clothing |
+| US 1,370,316 | 1921 | Diver's suit (Harry Houdini) |
+| US 6,564,394 | 2003 | Headwear useful as animal shelter |
+| US 4,986,433 | 1991 | Crispy cereal serving piece |
+| US 118,435 | 1871 | Creeping doll |
+| US 6,941,897 | 2005 | Receptacle assembly for receiving canine fecal matter |
+| US 5,996,127 | 1999 | Wearable device for feeding and observing birds |
+| US 441,911 | 1890 | Mustache-guard for drinking-vessels |
+| US 6,904,612 | 2005 | Weather and climate adaptive Halloween costume |
+| US 5,566,950 | 1996 | Urinal arcade game |
+| US 6,469 | 1849 | Buoying vessels over shoals (Abraham Lincoln) |
+| US 6,368,313 | 2002 | Dog diaper system |
+| US 4,498,586 | 1985 | Package saver (the pizza "table") |
+| US 5,826,678 | 1998 | Fire escape parachute |
+| US 6,612,440 | 2003 | Banana protective device |
 
 U.S. patent drawings are public domain. Drawing sheets come from Google Patents.

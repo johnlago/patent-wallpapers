@@ -272,7 +272,7 @@ def tidy_name(name: str) -> str:
 
 
 def pretty_number(number: str) -> str:
-    digits = re.sub(r"\D", "", number)
+    digits = re.sub(r"\D", "", re.sub(r"[A-Z]\d?$", "", number.upper()[2:]))
     return f"{int(digits):,}"
 
 
@@ -293,7 +293,7 @@ def caption_block(meta: dict, entry: dict, style: dict, width: int):
     The title sits optically centred between header and inventor; `title_nudge`
     moves it (negative = up) without moving the header or inventor lines.
     """
-    year = (meta.get("publication_date") or "")[:4]
+    year = str(entry.get("year") or (meta.get("publication_date") or "")[:4])
     header = f"U.S. PATENT NO. {pretty_number(meta['number'])}" + (f"  ·  {year}" if year else "")
     title = nice_title(entry.get("title") or meta["title"])
     inventor = entry.get("inventor") or ", ".join(tidy_name(n) for n in meta.get("inventors", [])[:2])

@@ -19,21 +19,23 @@ import tomllib
 import subprocess
 from pathlib import Path
 
+import uspto
+
 ROOT = Path(__file__).resolve().parent.parent
 CACHE = ROOT / "cache"
 UA = "Mozilla/5.0 (Macintosh) patent-wallpapers/1.0"
 
 
-def get(url: str) -> bytes:
+def get(url: str, tries: int = 4) -> bytes:
     # Google Patents answers Python's urllib with 503s, so shell out to curl.
-    for attempt in range(4):
+    for attempt in range(tries):
         r = subprocess.run(
             ["curl", "-sSL", "--fail", "-A", UA, "--max-time", "60", url],
             capture_output=True,
         )
         if r.returncode == 0:
             return r.stdout
-        if attempt < 3:
+        if attempt < tries - 1:
             time.sleep(5 * (attempt + 1))
     raise RuntimeError(f"curl failed for {url}: {r.stderr.decode().strip()}")
 
@@ -43,13 +45,30 @@ def first(pattern: str, text: str) -> str | None:
     return html.unescape(m.group(1)).strip() if m else None
 
 
+google_down = False  # set after Google refuses once, so the rest of the run skips it
+
+
 def fetch(number: str, force: bool = False) -> dict:
+    global google_down
     out = CACHE / number
     meta_path = out / "meta.json"
     if meta_path.exists() and not force:
         return json.loads(meta_path.read_text())
 
-    page = get(f"https://patents.google.com/patent/{number}/en").decode("utf-8", "replace")
+    if not google_down:
+        try:
+            return fetch_google(number, out, meta_path)
+        except RuntimeError:
+            google_down = True
+            print("  Google Patents refused; using USPTO PDFs for the rest of this run")
+    meta = {"number": number, "url": f"https://patents.google.com/patent/{number}/en",
+            "source": "uspto", **uspto.fetch(number, out, get)}
+    meta_path.write_text(json.dumps(meta, indent=2))
+    return meta
+
+
+def fetch_google(number: str, out: Path, meta_path: Path) -> dict:
+    page = get(f"https://patents.google.com/patent/{number}/en", tries=2).decode("utf-8", "replace")
     title = first(r"<title>[^-]*-\s*(.*?)\s*-\s*Google Patents</title>", page) or ""
     meta = {
         "number": number,
@@ -67,6 +86,8 @@ def fetch(number: str, force: bool = False) -> dict:
         (out / name).write_bytes(get(url))
         meta["sheets"].append(name)
         time.sleep(0.3)
+    if not meta["sheets"]:
+        raise RuntimeError("no drawing sheets on the Google Patents page")
     meta_path.write_text(json.dumps(meta, indent=2))
     return meta
 
@@ -80,7 +101,7 @@ def main(argv: list[str]) -> None:
     for n in numbers:
         try:
             m = fetch(n)
-            print(f"{n:<12} {len(m['sheets']):>2} sheets  {m['priority_date'] or '?':<10}  {m['title']}")
+            print(f"{n:<12} {len(m['sheets']):>2} sheets  {m['priority_date'] or m['publication_date'] or '?':<10}  {m['title']}")
         except Exception as e:  # keep going on bad numbers
             print(f"{n:<12} FAILED: {e}")
         time.sleep(1)
