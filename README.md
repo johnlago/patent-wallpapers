@@ -65,7 +65,8 @@ make build      # render output/{2bpp,gray-2000,preview}/ and output/contact-she
   overrides in `patents.toml` where needed. USPTO scans have wider margins than
   Google's images, so old sheets usually need a tighter `crop`.
 - `src/build.py` processes each entry in `patents.toml`:
-  1. Optional manual crop and rotation.
+  1. Optional manual rotation, crop, and `erase` boxes that white out stray
+     fragments a crop can't avoid.
   2. Paper cleanup: autocontrast, then pixels lighter than the `paper` threshold
      become white.
   3. A median filter (`despeckle`) removes scan specks.

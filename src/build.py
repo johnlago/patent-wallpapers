@@ -127,6 +127,8 @@ def prepare_drawing(src: Path, entry: dict, box_w: int, box_h: int) -> Image.Ima
     if crop := entry.get("crop"):
         l, t, r, b = crop
         im = im.crop((int(l * im.width), int(t * im.height), int(r * im.width), int(b * im.height)))
+    for l, t, r, b in entry.get("erase", []):  # white out stray bits the crop can't avoid
+        im.paste(255, (int(l * im.width), int(t * im.height), int(r * im.width), int(b * im.height)))
 
     # Flatten paper tone to pure white, stretch ink to full black.
     im = ImageOps.autocontrast(im, cutoff=(0.5, 0))
