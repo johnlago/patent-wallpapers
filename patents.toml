@@ -192,6 +192,9 @@ inventor = "Deloris Gray Wood"
 
 [[wallpaper]]
 patent = "US5356330"
+rotate = 270
+strip_header = false
+crop = [0.0, 0.0, 0.88, 1.0]
 sheet = 0
 
 [[wallpaper]]
@@ -234,6 +237,9 @@ crop = [0.0, 0.195, 1.0, 0.81]
 
 [[wallpaper]]
 patent = "US10952487B2"
+rotate = 270
+strip_header = false
+crop = [0.0, 0.0, 0.88, 1.0]
 sheet = 1
 title = "Beverage dispensing umbrella headwear"
 
@@ -270,6 +276,9 @@ inventor = "George Pemberton Clarke"
 
 [[wallpaper]]
 patent = "US6941897B2"
+rotate = 270
+strip_header = false
+crop = [0.0, 0.0, 0.88, 1.0]
 sheet = 4
 
 [[wallpaper]]
@@ -291,13 +300,17 @@ title = "Weather and climate adaptive Halloween costume"
 
 [[wallpaper]]
 patent = "US5566950A"
+rotate = 270
+strip_header = false
+crop = [0.0, 0.0, 0.88, 1.0]
 sheet = 1
 
 [[wallpaper]]
 patent = "US6469A"
+rotate = 270
 strip_header = false
+crop = [0.1, 0.0, 0.87, 1.0]
 sheet = 0
-crop = [0.0, 0.13, 1.0, 0.9]
 
 [[wallpaper]]
 patent = "US6368313B1"
@@ -306,11 +319,16 @@ crop = [0.0, 0.0, 1.0, 0.5]
 
 [[wallpaper]]
 patent = "US4498586A"
+rotate = 270
+strip_header = false
+crop = [0.0, 0.0, 0.92, 1.0]
 sheet = 1
-crop = [0.0, 0.08, 1.0, 1.0]
 
 [[wallpaper]]
 patent = "US5826678A"
+rotate = 270
+strip_header = false
+crop = [0.0, 0.0, 0.88, 1.0]
 sheet = 1
 
 [[wallpaper]]
