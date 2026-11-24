@@ -74,9 +74,14 @@ make build      # render output/{2bpp,gray-2000,preview}/ and output/contact-she
   To use another font, drop `regular.ttf` and `italic.ttf` into a `fonts/` folder.
   Caption sizes and spacing are under `[style]` in `patents.toml`. Lines are placed
   by measured cap height and baseline, so the gaps there are the gaps you see.
-  Titles never run past two lines: if a title won't fit, its size steps down
-  toward `title_min_size`. A two-line split aims for a first line about 60% as
-  wide as the second, so marginal cases break earlier rather than later.
+  Titles are set the way a typesetter handles display lines (see the costs at
+  the top of the captions section in `src/build.py`):
+  - A title that only just overflows goes on one line, slightly smaller.
+  - Breaks follow the sense: no line ends on "for", "of", "the" and similar,
+    and breaking before a preposition is preferred.
+  - No single-word lines.
+  - The two lines stay reasonably balanced, with the bottom line a little longer.
+  - Never more than two lines; titles shrink toward `title_min_size` instead.
 
 ### Adding a wallpaper
 

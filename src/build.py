@@ -162,27 +162,66 @@ def quantize(im: Image.Image, levels: int) -> Image.Image:
 
 # ---------------------------------------------------------------- captions
 
-TWO_LINE_RATIO = 0.6  # ideal first-line width as a fraction of the second
+# Title setting follows ordinary display-typesetting practice:
+#   1. A title that only just overflows is set on one line, slightly smaller,
+#      rather than broken (shrinking is cheap, a break is not).
+#   2. Break by sense: never leave a short function word ("for", "of", "the")
+#      hanging at the end of a line; prefer breaking *before* a preposition or
+#      conjunction, so each line is a phrase.
+#   3. No single-word line if a better option exists.
+#   4. Among sensible breaks, keep the two lines reasonably balanced, with the
+#      bottom line a little longer when it's close.
+# Each candidate (size, lines) gets a cost; the cheapest wins.
+
+ARTICLES = {"a", "an", "the"}
+CONNECTIVES = {  # prepositions + conjunctions: natural phrase starts
+    "of", "for", "to", "by", "in", "on", "at", "from", "with", "and", "or", "but",
+    "nor", "as", "into", "onto", "upon", "via", "per", "than",
+}
+WEAK_WORDS = ARTICLES | CONNECTIVES
+SHRINK_COST = 0.04       # per px below the normal title size
+BREAK_COST = 0.30        # any break at all (vs one line)
+WEAK_END_COST = 1.0      # line 1 ends on a weak word ("Device for /")
+SINGLE_WORD_COST = 0.5   # a line holding just one word
+SENSE_BREAK_BONUS = 0.25  # line 2 starts with a preposition/conjunction ("/ for kicking ...")
+ARTICLE_START_COST = 0.1  # line 2 starts with "a"/"the": splits a phrase from its noun
+IDEAL_RATIO = 0.85       # ideal line-1 width as a fraction of line 2
 
 
-def wrap_two(text: str, f: ImageFont.FreeTypeFont, width: int) -> list[str] | None:
-    """Best two-line split, or None if no split fits. Prefers the first line
-    at ~60% of the second (a short line over a longer one); a first line wider
-    than the second is penalised, so marginal cases break earlier
-    ("Device for waking / persons from sleep").
-    """
-    words = text.split()
+def break_cost(l1: str, l2: str, f: ImageFont.FreeTypeFont) -> float:
+    q = f.getlength(l1) / f.getlength(l2)
+    cost = (q - IDEAL_RATIO) ** 2
+    if l1.split()[-1].lower() in WEAK_WORDS:
+        cost += WEAK_END_COST
+    if " " not in l1 or " " not in l2:
+        cost += SINGLE_WORD_COST
+    if l2.split()[0].lower() in CONNECTIVES:
+        cost -= SENSE_BREAK_BONUS
+    elif l2.split()[0].lower() in ARTICLES:
+        cost += ARTICLE_START_COST
+    return cost
+
+
+def set_title(title: str, max_size: int, min_size: int, width: int) -> tuple[int, list[str]]:
+    """Choose the title's size and line breaks (one or two lines)."""
+    words = title.split()
     best = None
-    for k in range(1, len(words)):
-        l1, l2 = " ".join(words[:k]), " ".join(words[k:])
-        w1, w2 = f.getlength(l1), f.getlength(l2)
-        if max(w1, w2) > width:
-            continue
-        q = w1 / w2
-        cost = (q - TWO_LINE_RATIO) ** 2 + (1.0 if q > 1 else 0.0)
-        if best is None or cost < best[0]:
-            best = (cost, [l1, l2])
-    return best[1] if best else None
+    for size in range(max_size, min_size - 1, -1):
+        f = font("italic", size)
+        shrink = SHRINK_COST * (max_size - size)
+        options = []
+        if f.getlength(title) <= width:
+            options.append((shrink, [title]))
+        for k in range(1, len(words)):
+            l1, l2 = " ".join(words[:k]), " ".join(words[k:])
+            if max(f.getlength(l1), f.getlength(l2)) <= width:
+                options.append((shrink + BREAK_COST + break_cost(l1, l2, f), [l1, l2]))
+        for cost, lines in options:
+            if best is None or cost < best[0]:
+                best = (cost, size, lines)
+    if best:
+        return best[1], best[2]
+    return min_size, wrap(title, font("italic", min_size), width)  # last resort: 3+ lines
 
 
 def wrap(text: str, f: ImageFont.FreeTypeFont, width: int) -> list[str]:
@@ -254,19 +293,8 @@ def caption_block(meta: dict, entry: dict, style: dict, width: int):
     fh, fi = font("regular", style["header_size"]), font("regular", style["inventor_size"])
     # Title: one line if it fits, else the best two-line split. If even that
     # overflows, step the size down until it fits (never more than two lines).
-    size = style["title_size"]
-    while True:
-        ft = font("italic", size)
-        if ft.getlength(title) <= width:
-            title_lines = [title]
-            break
-        title_lines = wrap_two(title, ft, width)
-        if title_lines:
-            break
-        if size <= style.get("title_min_size", 16):
-            title_lines = wrap(title, ft, width)
-            break
-        size -= 1
+    size, title_lines = set_title(title, style["title_size"], style.get("title_min_size", 16), width)
+    ft = font("italic", size)
     lead = round(size * 1.22)
     ch, ct, ci = cap_height(fh), cap_height(ft), cap_height(fi)
     rule_gap, line_gap, nudge = style["rule_gap"], style["line_gap"], style.get("title_nudge", 0)
