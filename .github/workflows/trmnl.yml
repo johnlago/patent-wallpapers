@@ -1,0 +1,36 @@
+name: Rotate TRMNL images
+
+# Redeploys GitHub Pages with the current image for each TRMNL layout.
+# TRMNL's Image Display plugin sees the new ETag / Last-Modified and redraws.
+on:
+  schedule:
+    - cron: "7 */6 * * *"  # every 6 hours; keep in step with INTERVAL_HOURS in src/rotate.py
+  push:
+    branches: [main]
+    paths: ["output/trmnl/**", "src/rotate.py", ".github/workflows/trmnl.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 src/rotate.py site
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - id: deployment
+        uses: actions/deploy-pages@v4

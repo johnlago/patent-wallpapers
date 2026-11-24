@@ -41,6 +41,104 @@ title_nudge = -2      # move the title (negative = up) to optically centre it
 header_nudge = -1     # move the patent-number line + rule (negative = up)
 rule_width = 36       # half-width of the divider rule
 
+# TRMNL (original model: 800 x 480 landscape, ~125 PPI, 4 grays on firmware 1.6+).
+# One image per TRMNL layout; built by src/trmnl.py into output/trmnl/<layout>/.
+# Mashup slot sizes are from TRMNL's framework CSS (10 px gap on an 800x480 screen).
+# Each layout keeps the [style] meanings above, plus:
+#   arrangements  "stack" = caption under the drawing, "side" = caption column
+#                 beside it; with both, each drawing gets whichever shows it larger
+#   stack_anchor  "bottom" pins the caption to the bottom margin like the e-reader
+#                 set; otherwise drawing + caption are centred as a group
+#   caption_side  "left" or "right" of the drawing, for "side"
+#   side_gap      minimum px between drawing and caption column; spare width is
+#                 spread evenly over the margins and this gap
+#   side_min/max  caption column width range (px); widened if the header or a
+#                 two-line title needs it
+#   side_bias     >1 favours "side" when the two are close
+#   side_line_gap line_gap for the caption column in "side" (default: line_gap)
+#   show_header / show_inventor / show_rule / max_inventors   trim the caption
+#   header_wrap   false keeps "U.S. PATENT NO. ... · year" on one line
+#   max_title_lines  lines a title may wrap to before dropping to title_min_size
+[trmnl]
+levels = 4
+
+[trmnl.style]         # shared by every layout below unless it overrides
+title_nudge = 0
+header_nudge = 0
+max_inventors = 2
+max_title_lines = 2
+show_rule = false
+header_wrap = false
+caption_side = "left"
+
+[trmnl.full]
+width = 800
+height = 480
+margin = 32
+header_size = 15
+title_size = 30
+title_min_size = 20
+inventor_size = 17
+caption_gap = 40
+rule_gap = 0
+line_gap = 20
+side_line_gap = 30
+side_gap = 48
+side_min = 280
+side_max = 340
+
+[trmnl.half_vertical]  # the e-reader layout, scaled to the slot (x0.7)
+width = 385
+height = 460
+arrangements = ["stack"]
+stack_anchor = "bottom"
+show_rule = true
+header_wrap = true
+margin = 26
+header_size = 13
+title_size = 22
+title_min_size = 15
+inventor_size = 13
+caption_gap = 21
+rule_gap = 17
+line_gap = 14
+title_nudge = -1
+header_nudge = -1
+rule_width = 25
+
+[trmnl.half_horizontal]
+width = 780
+height = 225
+arrangements = ["side"]
+margin = 18
+header_size = 12
+title_size = 23
+title_min_size = 19
+inventor_size = 13
+caption_gap = 12
+rule_gap = 0
+line_gap = 15
+side_gap = 44
+side_min = 240
+side_max = 330
+
+[trmnl.quadrant]
+width = 385
+height = 225
+margin = 14
+max_title_lines = 3
+header_size = 11
+title_size = 17
+title_min_size = 16
+inventor_size = 11
+caption_gap = 16
+rule_gap = 0
+line_gap = 10
+side_line_gap = 16
+side_gap = 26
+side_min = 165
+side_max = 215
+
 [[wallpaper]]
 patent = "US6293874"
 sheet = 0

@@ -40,13 +40,67 @@ scaled to 2000 px tall (`output/gray-2000/`). Set `reference_height` in
 CrossPoint picks a random image each time the device sleeps. The first sleep
 with a new image is slower because the device converts it once.
 
+## TRMNL
+
+The same set is also rendered for the original **TRMNL** (800 × 480 landscape,
+4 grays on firmware 1.6+). It has one image per TRMNL layout, each with its own
+arrangement:
+
+| Layout | Size | Arrangement |
+|---|---|---|
+| `full` | 800 × 480 | caption beside or under the drawing, whichever shows it larger |
+| `half_vertical` | 385 × 460 | caption under the drawing |
+| `half_horizontal` | 780 × 225 | caption beside the drawing |
+| `quadrant` | 385 × 225 | title and patent number only, beside or under |
+
+The mashup slot sizes come from TRMNL's framework CSS: a 10 px gap around and
+between slots on an 800 × 480 screen. Note that TRMNL's Image Display help page
+gives ratios for the TRMNL X, not the original. Files are 2-bit grayscale PNGs
+in `output/trmnl/<layout>/`, with a contact sheet per layout. The build warns if
+any file is over the original TRMNL's 90,000-byte limit. The layout settings
+live under `[trmnl.*]` in `patents.toml`.
+
+### Hosting and rotation
+
+A GitHub Action (`.github/workflows/trmnl.yml`) redeploys GitHub Pages every 6
+hours, on any push that changes `output/trmnl/`, and on demand from the Actions
+tab. `src/rotate.py` puts the current pick for each layout at a fixed URL:
+
+```
+https://johnlago.github.io/patent-wallpapers/current/full.png
+https://johnlago.github.io/patent-wallpapers/current/half_vertical.png
+https://johnlago.github.io/patent-wallpapers/current/half_horizontal.png
+https://johnlago.github.io/patent-wallpapers/current/quadrant.png
+```
+
+The site's index page shows all four, and `current.json` says which patent
+each one is. Each layout walks its own shuffled order of the whole set, so
+nothing repeats until every patent has been shown, and a mashup shows a
+different patent in each slot. Picks depend only on the time, so the Action
+keeps no state.
+
+**On the TRMNL:** add an **Image Display** plugin with the `full.png` URL. For
+mashups, add one more Image Display plugin per slot shape, each pointing at
+the matching URL. Image Display notices the new image through its `ETag` /
+`Last-Modified` and redraws.
+
+**Adding a patent:** add a `[[wallpaper]]` entry, run `make`, check
+`output/trmnl/contact-*.png`, then commit and push. The push redeploys, and the
+new patent joins the rotation. The Action only rotates committed images and
+never builds, so nothing reaches the screen without being looked at first.
+
+GitHub pauses scheduled workflows in a public repo after 60 days with no
+commits. Pushing a new patent resets that. If rotation stops, re-enable the
+workflow from the Actions tab.
+
 ## Pipeline
 
 ```bash
 pip install -r requirements.txt   # just Pillow
 make            # fetch + build
 make fetch      # download metadata + drawing sheets into cache/
-make build      # render output/{2bpp,gray-2000,preview}/ and output/contact-sheet.png
+make build      # render output/{2bpp,gray-2000,preview}/ and output/contact-sheet.png, then the TRMNL set
+make trmnl      # render only output/trmnl/
 ```
 
 - `src/fetch.py` pulls each patent's Google Patents page through `curl`, because

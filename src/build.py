@@ -121,6 +121,11 @@ def strip_header(im: Image.Image) -> Image.Image:
 
 
 def prepare_drawing(src: Path, entry: dict, box_w: int, box_h: int) -> Image.Image:
+    return fit_drawing(clean_drawing(src, entry), entry, box_w, box_h)
+
+
+def clean_drawing(src: Path, entry: dict) -> Image.Image:
+    """Full-resolution drawing: rotated, cropped, paper flattened, trimmed to ink."""
     im = Image.open(src).convert("L")
     if entry.get("rotate"):
         im = im.rotate(entry["rotate"], expand=True, fillcolor=255)
@@ -139,8 +144,11 @@ def prepare_drawing(src: Path, entry: dict, box_w: int, box_h: int) -> Image.Ima
         im = im.filter(ImageFilter.MedianFilter(d))
     if entry.get("strip_header", True):
         im = strip_header(im)
-    im = im.crop(ink_bbox(im))
+    return im.crop(ink_bbox(im))
 
+
+def fit_drawing(im: Image.Image, entry: dict, box_w: int, box_h: int) -> Image.Image:
+    """Scale a cleaned drawing to fit the box, thickening hairlines first."""
     scale = min(box_w / im.width, box_h / im.height)
     # Thicken lines before downscaling so hairlines survive (~4-5x reduction typical).
     weight = entry.get("weight", 1)
@@ -204,8 +212,10 @@ def break_cost(l1: str, l2: str, f: ImageFont.FreeTypeFont) -> float:
     return cost
 
 
-def set_title(title: str, max_size: int, min_size: int, width: int) -> tuple[int, list[str]]:
-    """Choose the title's size and line breaks (one or two lines)."""
+def set_title(title: str, max_size: int, min_size: int, width: int, max_lines: int = 2) -> tuple[int, list[str]]:
+    """Choose the title's size and line breaks (one or two lines). If no size
+    fits two lines and `max_lines` > 2, take the largest size whose balanced
+    wrap fits in `max_lines` (narrow caption columns)."""
     words = title.split()
     best = None
     for size in range(max_size, min_size - 1, -1):
@@ -223,6 +233,10 @@ def set_title(title: str, max_size: int, min_size: int, width: int) -> tuple[int
                 best = (cost, size, lines)
     if best:
         return best[1], best[2]
+    for size in range(max_size, min_size - 1, -1):
+        lines = wrap(title, font("italic", size), width)
+        if len(lines) <= max_lines and max(font("italic", size).getlength(l) for l in lines) <= width:
+            return size, lines
     return min_size, wrap(title, font("italic", min_size), width)  # last resort: 3+ lines
 
 
@@ -287,6 +301,17 @@ def cap_height(f: ImageFont.FreeTypeFont) -> int:
     return -f.getbbox("H", anchor="ls")[1]
 
 
+def caption_text(meta: dict, entry: dict, style: dict) -> tuple[str, str, str, str, str]:
+    """(header, number, year, title, inventor) strings for a caption."""
+    year = str(entry.get("year") or (meta.get("publication_date") or "")[:4])
+    number = f"U.S. PATENT NO. {pretty_number(meta['number'])}"
+    header = number + (f"  ·  {year}" if year else "")
+    title = nice_title(entry.get("title") or meta["title"])
+    inventor = entry.get("inventor") or ", ".join(
+        tidy_name(n) for n in meta.get("inventors", [])[:style.get("max_inventors", 2)])
+    return header, number, year, title, inventor
+
+
 def caption_block(meta: dict, entry: dict, style: dict, width: int):
     """Return (height, draw_fn) for the caption so the drawing can be sized first.
 
@@ -294,41 +319,63 @@ def caption_block(meta: dict, entry: dict, style: dict, width: int):
     gaps are what we ask for: rule -> header, header -> title, title -> inventor.
     The title sits optically centred between header and inventor; `title_nudge`
     moves it (negative = up) without moving the header or inventor lines.
+
+    Optional style keys (for small layouts): `show_header` / `show_inventor`
+    (default true) drop those lines, `show_rule` (default true) drops the divider,
+    and `max_inventors` (default 2) limits names. A header or inventor line too
+    wide for `width` wraps instead of overflowing; `header_wrap = false` keeps
+    the header on one line (the caller must make `width` wide enough).
     """
-    year = str(entry.get("year") or (meta.get("publication_date") or "")[:4])
-    header = f"U.S. PATENT NO. {pretty_number(meta['number'])}" + (f"  ·  {year}" if year else "")
-    title = nice_title(entry.get("title") or meta["title"])
-    inventor = entry.get("inventor") or ", ".join(tidy_name(n) for n in meta.get("inventors", [])[:2])
+    show_header, show_inventor = style.get("show_header", True), style.get("show_inventor", True)
+    show_rule = show_header and style.get("show_rule", True)
+    header, number, year, title, inventor = caption_text(meta, entry, style)
+    if not show_inventor:
+        inventor = ""
 
     fh, fi = font("regular", style["header_size"]), font("regular", style["inventor_size"])
+    header_lines = [header] if show_header else []
+    if header_lines and style.get("header_wrap", True) and fh.getlength(header) > width:
+        header_lines = [number] + ([year] if year else [])
+    inventor_lines = wrap(inventor, fi, width) if inventor else []
     # Title: one line if it fits, else the best two-line split. If even that
     # overflows, step the size down until it fits (never more than two lines).
-    size, title_lines = set_title(title, style["title_size"], style.get("title_min_size", 16), width)
+    size, title_lines = set_title(title, style["title_size"], style.get("title_min_size", 16), width,
+                                  style.get("max_title_lines", 2))
     ft = font("italic", size)
     lead = round(size * 1.22)
+    header_lead, inventor_lead = round(style["header_size"] * 1.3), round(style["inventor_size"] * 1.3)
     ch, ct, ci = cap_height(fh), cap_height(ft), cap_height(fi)
-    rule_gap, line_gap, nudge = style["rule_gap"], style["line_gap"], style.get("title_nudge", 0)
+    rule_gap = style["rule_gap"] if show_rule else 0
+    line_gap, nudge = style["line_gap"], style.get("title_nudge", 0)
     # header_nudge < 0 lifts the header (and the rule above it) away from the
     # title; the caption grows by that much and the drawing box shrinks to match.
     header_nudge = style.get("header_nudge", 0)
 
-    # Baselines, relative to the rule at y=0.
-    header_base = rule_gap + ch
-    title_base0 = header_base + line_gap + ct + nudge - header_nudge
+    # Baselines, relative to the rule at y=0 (or the caption top, with no header).
+    if header_lines:
+        header_base = rule_gap + ch
+        header_last = header_base + header_lead * (len(header_lines) - 1)
+        title_base0 = header_last + line_gap + ct + nudge - header_nudge
+    else:
+        title_base0 = ct
     title_last = title_base0 + lead * (len(title_lines) - 1)
-    inventor_base = title_last + line_gap + ci - nudge if inventor else title_last
-    descent = fi.getbbox("gjpy", anchor="ls")[3] if inventor else ft.getbbox("gjpy", anchor="ls")[3]
-    height = inventor_base + descent
+    inventor_base = title_last + line_gap + ci - nudge if inventor_lines else title_last
+    inventor_last = inventor_base + inventor_lead * max(0, len(inventor_lines) - 1)
+    descent = fi.getbbox("gjpy", anchor="ls")[3] if inventor_lines else ft.getbbox("gjpy", anchor="ls")[3]
+    height = inventor_last + descent
 
     def draw(d: ImageDraw.ImageDraw, x0: int, y0: int):
         cx = x0 + width // 2
-        hw = style.get("rule_width", 36)
-        d.line([(cx - hw, y0), (cx + hw, y0)], fill=0, width=style.get("rule_thickness", 1))
-        d.text((cx, y0 + header_base), header, font=fh, fill=0, anchor="ms")
+        if show_rule:
+            hw = style.get("rule_width", 36)
+            d.line([(cx - hw, y0), (cx + hw, y0)], fill=0, width=style.get("rule_thickness", 1))
+        if header_lines:
+            for i, line in enumerate(header_lines):
+                d.text((cx, y0 + header_base + i * header_lead), line, font=fh, fill=0, anchor="ms")
         for i, line in enumerate(title_lines):
             d.text((cx, y0 + title_base0 + i * lead), line, font=ft, fill=0, anchor="ms")
-        if inventor:
-            d.text((cx, y0 + inventor_base), inventor, font=fi, fill=0, anchor="ms")
+        for i, line in enumerate(inventor_lines):
+            d.text((cx, y0 + inventor_base + i * inventor_lead), line, font=fi, fill=0, anchor="ms")
 
     return height, draw
 
@@ -389,9 +436,8 @@ def save_bmp_2bpp(im: Image.Image, path: Path) -> None:
     path.write_bytes(header + info + palette + rows)
 
 
-def contact_sheet(images: list[Image.Image], path: Path, cols: int = 5) -> None:
+def contact_sheet(images: list[Image.Image], path: Path, cols: int = 5, t: float = 0.4) -> None:
     w, h = images[0].size
-    t = 0.4
     tw, th, g = int(w * t), int(h * t), 12
     rows = (len(images) + cols - 1) // cols
     sheet = Image.new("L", (cols * (tw + g) + g, rows * (th + g) + g), 200)
