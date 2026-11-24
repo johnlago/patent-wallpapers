@@ -24,7 +24,6 @@ gray levels, the device shows them pixel-for-pixel with no scaling or dithering.
    ```bash
    mkdir -p /Volumes/SDCARD/.sleep && cp output/light/*.bmp /Volumes/SDCARD/.sleep/
    ```
-   Use `output/dark/` instead for white-on-black versions.
 2. On the device, set **Settings → Sleep Screen** to **Custom**.
 
 CrossPoint picks a random image each time the device sleeps. The first sleep
@@ -36,7 +35,7 @@ with a new image is slower because the device converts it once.
 pip install -r requirements.txt   # just Pillow
 make            # fetch + build
 make fetch      # download metadata + drawing sheets into cache/
-make build      # render output/{light,dark,preview}/ and output/contact-sheet.png
+make build      # render output/{light,preview}/ and output/contact-sheet.png
 ```
 
 - `src/fetch.py` pulls each patent's Google Patents page through `curl`, because
@@ -56,6 +55,11 @@ make build      # render output/{light,dark,preview}/ and output/contact-sheet.p
   7. The drawing is fitted into the frame above a caption with the patent
      number, year, title, and inventor.
   8. The result is snapped to the device's gray levels.
+
+  Captions are set in Bookerly from `~/Library/Fonts`, falling back to Georgia.
+  To use another font, drop `regular.ttf` and `italic.ttf` into a `fonts/` folder.
+  Caption sizes and spacing are under `[style]` in `patents.toml`. Lines are placed
+  by measured cap height and baseline, so the gaps there are the gaps you see.
 
 ### Adding a wallpaper
 

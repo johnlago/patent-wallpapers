@@ -25,11 +25,15 @@ height = 768
 levels = 4            # gray levels the panel can show
 
 [style]
-margin = 26           # px around the drawing
-header_size = 13      # "U.S. PATENT 6,293,874 · 2001"
-title_size = 21
-inventor_size = 13
-caption_gap = 14      # px between drawing and caption block
+margin = 32           # px around everything
+header_size = 17      # "U.S. PATENT 6,293,874 · 2001"
+title_size = 27
+inventor_size = 17
+caption_gap = 30      # px between drawing and the divider rule
+rule_gap = 24         # px between the divider rule and the header's cap height
+line_gap = 18         # visual gap between caption lines (baseline to cap height)
+title_nudge = 0       # push the title down to optically centre it
+rule_width = 36       # half-width of the divider rule
 
 [[wallpaper]]
 patent = "US6293874"

@@ -6,7 +6,6 @@ Usage:
 
 Output (sizes come from [device] in patents.toml):
     output/light/*.bmp     black drawing on white   -> copy to SD card /.sleep/
-    output/dark/*.bmp      inverted (white on black)
     output/preview/*.png   PNG copies of the light set, for browsing
     output/contact-sheet.png
 """
@@ -25,16 +24,16 @@ CACHE = ROOT / "cache"
 OUT = ROOT / "output"
 
 FONT_CANDIDATES = {
-    "regular": ["fonts/regular.ttf", "/System/Library/Fonts/Supplemental/Georgia.ttf",
+    "regular": ["fonts/regular.ttf", "~/Library/Fonts/Bookerly.ttf", "/System/Library/Fonts/Supplemental/Georgia.ttf",
                 "/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf"],
-    "italic": ["fonts/italic.ttf", "/System/Library/Fonts/Supplemental/Georgia Italic.ttf",
+    "italic": ["fonts/italic.ttf", "~/Library/Fonts/Bookerly Italic.ttf", "/System/Library/Fonts/Supplemental/Georgia Italic.ttf",
                "/usr/share/fonts/truetype/dejavu/DejaVuSerif-Italic.ttf"],
 }
 
 
 def font(kind: str, size: int) -> ImageFont.FreeTypeFont:
     for p in FONT_CANDIDATES[kind]:
-        path = ROOT / p if not p.startswith("/") else Path(p)
+        path = Path(p).expanduser() if p[0] in "/~" else ROOT / p
         if path.exists():
             return ImageFont.truetype(str(path), size)
     return ImageFont.load_default(size)
@@ -153,8 +152,18 @@ def nice_title(t: str) -> str:
     return t[:1].upper() + t[1:]
 
 
+def cap_height(f: ImageFont.FreeTypeFont) -> int:
+    return -f.getbbox("H", anchor="ls")[1]
+
+
 def caption_block(meta: dict, entry: dict, style: dict, width: int):
-    """Return (height, draw_fn) for the caption so the drawing can be sized first."""
+    """Return (height, draw_fn) for the caption so the drawing can be sized first.
+
+    Lines are placed by baseline and cap height (not font size) so the visual
+    gaps are what we ask for: rule -> header, header -> title, title -> inventor.
+    The title sits optically centred between header and inventor; `title_nudge`
+    shifts it down a touch to compensate for italic descenders below it.
+    """
     year = (meta.get("publication_date") or "")[:4]
     header = f"U.S. PATENT  {pretty_number(meta['number'])}" + (f"  ·  {year}" if year else "")
     title = nice_title(entry.get("title") or meta["title"])
@@ -162,21 +171,27 @@ def caption_block(meta: dict, entry: dict, style: dict, width: int):
 
     fh, ft, fi = font("regular", style["header_size"]), font("italic", style["title_size"]), font("regular", style["inventor_size"])
     title_lines = wrap(title, ft, width)
-    lh = int(style["title_size"] * 1.25)
-    rule_h, gap = 1, 10
-    height = rule_h + gap + style["header_size"] + gap + lh * len(title_lines) + (gap + style["inventor_size"] if inventor else 0)
+    lead = round(style["title_size"] * 1.22)
+    ch, ct, ci = cap_height(fh), cap_height(ft), cap_height(fi)
+    rule_gap, line_gap, nudge = style["rule_gap"], style["line_gap"], style.get("title_nudge", 0)
+
+    # Baselines, relative to the rule at y=0.
+    header_base = rule_gap + ch
+    title_base0 = header_base + line_gap + ct + nudge
+    title_last = title_base0 + lead * (len(title_lines) - 1)
+    inventor_base = title_last + line_gap + ci - nudge if inventor else title_last
+    descent = fi.getbbox("gjpy", anchor="ls")[3] if inventor else ft.getbbox("gjpy", anchor="ls")[3]
+    height = inventor_base + descent
 
     def draw(d: ImageDraw.ImageDraw, x0: int, y0: int):
         cx = x0 + width // 2
-        d.line([(cx - 40, y0), (cx + 40, y0)], fill=0, width=1)
-        y = y0 + rule_h + gap
-        d.text((cx, y), header, font=fh, fill=0, anchor="mt")
-        y += style["header_size"] + gap
-        for line in title_lines:
-            d.text((cx, y), line, font=ft, fill=0, anchor="mt")
-            y += lh
+        hw = style.get("rule_width", 36)
+        d.line([(cx - hw, y0), (cx + hw, y0)], fill=0, width=1)
+        d.text((cx, y0 + header_base), header, font=fh, fill=0, anchor="ms")
+        for i, line in enumerate(title_lines):
+            d.text((cx, y0 + title_base0 + i * lead), line, font=ft, fill=0, anchor="ms")
         if inventor:
-            d.text((cx, y + gap), inventor, font=fi, fill=85, anchor="mt")
+            d.text((cx, y0 + inventor_base), inventor, font=fi, fill=0, anchor="ms")
 
     return height, draw
 
@@ -229,7 +244,7 @@ def main(argv: list[str]) -> None:
     cfg = tomllib.loads((ROOT / "patents.toml").read_text())
     device, style = cfg["device"], cfg["style"]
     entries = [e for e in cfg["wallpaper"] if not argv or e["patent"] in argv]
-    for sub in ("light", "dark", "preview"):
+    for sub in ("light", "preview"):
         (OUT / sub).mkdir(parents=True, exist_ok=True)
 
     built = []
@@ -239,7 +254,6 @@ def main(argv: list[str]) -> None:
             continue
         name, im = build_one(e, device, style)
         save_bmp(im, OUT / "light" / f"{name}.bmp")
-        save_bmp(ImageOps.invert(im), OUT / "dark" / f"{name}.bmp")
         im.save(OUT / "preview" / f"{name}.png", optimize=True)
         built.append(im)
         print(f"built {name}")
