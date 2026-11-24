@@ -141,6 +141,15 @@ side_gap = 26
 side_min = 165
 side_max = 215
 
+# Native TRMNL plugin (src/plugin.py, trmnl-plugin/). Each [plugin.<layout>] table
+# overrides that [trmnl.<layout>] for the plugin only; the Image Display set above
+# is unchanged. A taller caption shrinks the drawing to make room.
+[plugin.half_vertical]
+line_gap = 20         # more room above and below the title (Image Display: 14)
+
+[plugin.quadrant]
+line_gap = 14         # stacked captions: a little more room around the title (Image Display: 10)
+
 [[wallpaper]]
 patent = "US6293874"
 sheet = 0

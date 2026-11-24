@@ -1,0 +1,23 @@
+# TRMNLP configuration (local only, not uploaded)
+# {{ env.VARIABLE }} interpolation is available here
+---
+watch:
+  - .trmnlp.yml
+  - src
+
+custom_fields: {}
+
+variables:
+  trmnl: {}
+
+# Serve drawings and fonts from the local build (`make plugin`) instead of GitHub
+# Pages, so unpublished patents preview too. Run trmnlp from the repo root
+# (`make plugin-preview` etc.) so ../output is inside the Docker mount.
+asset_overrides:
+  "https://johnlago.github.io/patent-wallpapers/plugin/": ../output/plugin/
+
+# The captions are set in Libron with their own sizes, scaled to the slot with
+# container units (see shared.liquid), so they do change size per screen; the
+# framework's title/value/label elements would replace the typeface and sizing.
+ignored_lint_rules:
+  - framework_elements_used

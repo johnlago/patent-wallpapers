@@ -1,0 +1,5 @@
+Libron v0.32 (https://github.com/nicoverbruggen/libron/releases/tag/v0.32), unmodified:
+Libron-{Regular,Italic}.ttf from Libron.zip (caption measurement in src/plugin.py),
+Libron-{Regular,Italic}.woff2 from Libron_Web.zip (served to the TRMNL plugin).
+OFL 1.1 with Reserved Font Name "Libron": do not subset or convert these files
+without renaming the font. See LICENSE and COPYRIGHT.

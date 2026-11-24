@@ -70,16 +70,21 @@ def side_min_width(meta: dict, entry: dict, st: dict, limit: int) -> int:
     return min(w, limit)
 
 
-def compose(clean: Image.Image, entry: dict, meta: dict, st: dict, supersample: int = 1) -> Image.Image:
+def plan(clean: Image.Image, entry: dict, meta: dict, st: dict, supersample: int = 1) -> dict:
+    """Decide a layout without drawing it: the arrangement, the fitted drawing and
+    where it goes, and the caption's box. Returns a dict with `kind` ("stack" or
+    "side"), `drawing` (the fitted image), `drawing_xy`, `caption_xy`, `cap_w`,
+    `cap_h`, `draw_caption` (from caption_block) and `style` (the style the
+    caption was set with). src/plugin.py reuses this for the native plugin."""
     W, H, m = st["width"], st["height"], st["margin"]
     arrangements = st.get("arrangements", ["stack", "side"])
-    options = []  # (score, kind, box_w, box_h, cap_w, cap_h, draw_caption)
+    options = []  # (score, kind, box_w, box_h, cap_w, cap_h, draw_caption, style)
 
     if "stack" in arrangements:
         cap_h, draw = caption_block(meta, entry, st, W - 2 * m)
         bw, bh = W - 2 * m, H - 2 * m - cap_h - st["caption_gap"]
         if bh > 0:
-            options.append((min(bw / clean.width, bh / clean.height), "stack", bw, bh, W - 2 * m, cap_h, draw))
+            options.append((min(bw / clean.width, bh / clean.height), "stack", bw, bh, W - 2 * m, cap_h, draw, st))
 
     if "side" in arrangements:
         sst = {**st, "line_gap": st.get("side_line_gap", st["line_gap"])}  # airier column caption
@@ -94,15 +99,13 @@ def compose(clean: Image.Image, entry: dict, meta: dict, st: dict, supersample: 
         cap_h, draw = caption_block(meta, entry, sst, cap_w)
         if cap_h <= bh and bw > 0:
             score = min(bw / clean.width, bh / clean.height) * st.get("side_bias", 1.0)
-            options.append((score, "side", bw, bh, cap_w, cap_h, draw))
+            options.append((score, "side", bw, bh, cap_w, cap_h, draw, sst))
 
     if not options:
         raise ValueError(f"{entry['patent']}: caption doesn't fit the {W}x{H} layout")
-    _, kind, bw, bh, cap_w, cap_h, draw_caption = max(options, key=lambda o: o[0])
+    _, kind, bw, bh, cap_w, cap_h, draw_caption, used = max(options, key=lambda o: o[0])
     drawing = fit_drawing(clean, entry, bw, bh, supersample)
 
-    canvas = Image.new("L", (W, H), 255)
-    d = ImageDraw.Draw(canvas)
     if kind == "stack":
         gap = st["caption_gap"]
         if st.get("stack_anchor") == "bottom":
@@ -113,8 +116,7 @@ def compose(clean: Image.Image, entry: dict, meta: dict, st: dict, supersample: 
         else:  # drawing + caption centred together
             top = (H - drawing.height - gap - cap_h) // 2
             cap_y = top + drawing.height + gap
-        canvas.paste(drawing, ((W - drawing.width) // 2, top))
-        draw_caption(d, m, cap_y)
+        drawing_xy, caption_xy = ((W - drawing.width) // 2, top), (m, cap_y)
     else:
         # Spread spare width evenly over the two outer margins and the gap
         # (gap never below side_gap), so the pair doesn't huddle mid-frame.
@@ -125,11 +127,18 @@ def compose(clean: Image.Image, entry: dict, meta: dict, st: dict, supersample: 
             gap, outer = g, (spare - g) // 2
         dy, cy = (H - drawing.height) // 2, (H - cap_h) // 2
         if st.get("caption_side", "left") == "left":
-            draw_caption(d, outer, cy)
-            canvas.paste(drawing, (outer + cap_w + gap, dy))
+            caption_xy, drawing_xy = (outer, cy), (outer + cap_w + gap, dy)
         else:
-            canvas.paste(drawing, (outer, dy))
-            draw_caption(d, outer + drawing.width + gap, cy)
+            drawing_xy, caption_xy = (outer, dy), (outer + drawing.width + gap, cy)
+    return {"kind": kind, "drawing": drawing, "drawing_xy": drawing_xy, "caption_xy": caption_xy,
+            "cap_w": cap_w, "cap_h": cap_h, "draw_caption": draw_caption, "style": used}
+
+
+def compose(clean: Image.Image, entry: dict, meta: dict, st: dict, supersample: int = 1) -> Image.Image:
+    p = plan(clean, entry, meta, st, supersample)
+    canvas = Image.new("L", (st["width"], st["height"]), 255)
+    canvas.paste(p["drawing"], p["drawing_xy"])
+    p["draw_caption"](ImageDraw.Draw(canvas), *p["caption_xy"])
     return canvas
 
 

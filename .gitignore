@@ -3,3 +3,5 @@ __pycache__/
 .venv/
 .DS_Store
 site/
+# per-screen trmnlp renders; the contact sheets beside them are kept
+output/plugin-preview/*/

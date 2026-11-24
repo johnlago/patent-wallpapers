@@ -115,14 +115,67 @@ GitHub pauses scheduled workflows in a public repo after 60 days with no
 commits. Pushing a new patent resets that. If rotation stops, re-enable the
 workflow from the Actions tab.
 
+## TRMNL plugin: Patent of the Moment
+
+A native TRMNL private plugin (`trmnl-plugin/`) that shows **a different patent
+on every plugin refresh**, with the caption as real text. It works in all four
+layouts and scales to any TRMNL model. Over time it replaces the Image Display
+setup above; the two can run side by side. The design and the verification
+findings are in [docs/trmnl-plugin-spec.md](docs/trmnl-plugin-spec.md).
+
+How it works:
+- `make plugin` (also part of `make build`) writes `output/plugin/`: every
+  drawing alone as a 16-gray PNG (`drawings/`), the Libron font files
+  (`fonts/`), and `manifest.json`. The manifest has each patent's caption text
+  and a layout plan per TRMNL layout, decided by the same rules as
+  `src/trmnl.py` but measured in Libron. Plugin-only spacing tweaks go in
+  `[plugin.<layout>]` in `patents.toml`.
+- The Pages workflow publishes it at
+  `https://johnlago.github.io/patent-wallpapers/plugin/`, dating each patent
+  from git history.
+- TRMNL polls `plugin/manifest.json`. The plugin's serverless transform
+  (`trmnl-plugin/src/transform.py`) picks the next patent and keeps a no-repeat
+  queue in the instance's saved state: each patent shows once before any
+  repeats, and a newly pushed patent goes first, once. The Liquid markup places
+  the drawing and the caption.
+- Captions are set in [Libron](https://github.com/nicoverbruggen/libron)
+  (OFL), a Bookerly-like e-reader serif, served unmodified from `fonts/libron/`.
+
+**Adding a patent** is unchanged: add a `[[wallpaper]]` entry, run `make`,
+review `output/trmnl/contact-*.png` (and `make plugin-contact` for the plugin),
+then commit and push, including `output/plugin/`. Each instance shows the new
+patent on its next refresh.
+
+**Checking the plugin** needs Docker. The trmnlp image is pulled on first use.
+
+```bash
+make plugin-lint      # trmnlp lint
+make plugin-test      # transform rules, every patent in every layout, recipe checks
+make plugin-contact   # the same, plus output/plugin-preview/contact-<layout>.png
+make plugin-serve     # live preview at http://localhost:4567 (polls the published manifest)
+```
+
+**Installing on the TRMNL:**
+1. Log in once and push the plugin. The first push creates it; then put the
+   `id` it prints into `trmnl-plugin/src/settings.yml`, so later pushes update
+   it instead of making a copy.
+   ```bash
+   cd trmnl-plugin && bin/trmnlp login && bin/trmnlp push
+   ```
+2. In TRMNL, add **Patent of the Moment** to a playlist. The refresh rate is
+   15 minutes by default; each refresh shows a new patent.
+3. For mashups, add the plugin to a mashup slot. Each plugin instance keeps its
+   own queue.
+
 ## Pipeline
 
 ```bash
 pip install -r requirements.txt   # just Pillow
 make            # fetch + build
 make fetch      # download metadata + drawing sheets into cache/
-make build      # render output/{2bpp,gray-2000,preview}/ and output/contact-sheet.png, then the TRMNL set
-make trmnl      # render only output/trmnl/
+make build      # render output/{2bpp,gray-2000,preview}/ and output/contact-sheet.png, then the TRMNL sets
+make trmnl      # render only output/trmnl/ (Image Display)
+make plugin     # render only output/plugin/ (the native plugin's data)
 ```
 
 - `src/fetch.py` pulls each patent's Google Patents page through `curl`, because

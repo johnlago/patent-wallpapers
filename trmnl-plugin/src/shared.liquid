@@ -1,0 +1,105 @@
+<style>
+  /* Libron (OFL, github.com/nicoverbruggen/libron), served unmodified from GitHub Pages.
+     The metric overrides pin line boxes so the spacing below is exact. */
+  @font-face {
+    font-family: "Libron";
+    font-style: normal;
+    font-weight: 400;
+    src: url("https://johnlago.github.io/patent-wallpapers/plugin/fonts/Libron-Regular.woff2") format("woff2");
+    ascent-override: 80%; descent-override: 20%; line-gap-override: 0%;
+  }
+  @font-face {
+    font-family: "Libron";
+    font-style: italic;
+    font-weight: 400;
+    src: url("https://johnlago.github.io/patent-wallpapers/plugin/fonts/Libron-Italic.woff2") format("woff2");
+    ascent-override: 80%; descent-override: 20%; line-gap-override: 0%;
+  }
+
+  .pw-layout { position: relative; padding: 0 !important; }
+  .pw { position: absolute; inset: 0; container-type: size; overflow: hidden; }
+
+  /* One canvas per layout, in that layout's own pixels (--rw x --rh) scaled to the
+     slot: --u is one reference pixel. Everything inside is placed in --u, so the
+     layout keeps its proportions on any device. */
+  .pw-canvas {
+    --u: min(calc(100cqw / var(--rw)), calc(100cqh / var(--rh)));
+    position: absolute; left: 50%; top: 50%;
+    width: calc(var(--rw) * var(--u)); height: calc(var(--rh) * var(--u));
+    transform: translate(-50%, -50%);
+    font-family: "Libron", Georgia, serif; font-weight: 400; color: #000;
+    font-kerning: normal; font-synthesis: none;
+  }
+  .pw-box {
+    position: absolute;
+    left: calc(var(--x) * var(--u)); top: calc(var(--y) * var(--u));
+    width: calc(var(--w) * var(--u)); height: calc(var(--h) * var(--u));
+  }
+  .pw-drawing { object-fit: contain; }
+
+  /* Caption lines are spaced by baseline and cap height, as in the Image Display
+     set: --lg is the gap from one line's baseline to the next line's cap height.
+     With ascent 0.8, descent 0.2 and cap height 0.698 em, a line box of
+     line-height L has (L-1)/2 + 0.102 em above the cap height and
+     (L-1)/2 + 0.2 em below the baseline. Header and inventors use L = 1.3,
+     the title 1.22. */
+  .pw-caption { display: flex; flex-direction: column; text-align: center; }
+  .pw-rule {
+    flex: none; align-self: center; width: calc(2 * var(--rw2) * var(--u));
+    border-top: max(1px, calc(1 * var(--u))) solid #000;
+  }
+  .pw-header, .pw-title, .pw-inventors { flex: none; }
+  .pw-header > span, .pw-title > span { display: block; white-space: pre; }
+  .pw-header { font-size: calc(var(--hs) * var(--u)); line-height: 1.3; margin-top: calc(-0.252 * var(--hs) * var(--u)); }
+  .pw-rule + .pw-header { margin-top: calc((var(--rg) - 0.252 * var(--hs)) * var(--u)); }
+  .pw-title {
+    font-style: italic; font-size: calc(var(--ts) * var(--u)); line-height: 1.22;
+    margin-top: calc((var(--lg) - 0.35 * var(--hs) - 0.212 * var(--ts)) * var(--u));
+  }
+  .pw-inventors {
+    font-size: calc(var(--is) * var(--u)); line-height: 1.3; text-wrap: balance;
+    margin-top: calc((var(--lg) - 0.31 * var(--ts) - 0.252 * var(--is)) * var(--u));
+    margin-bottom: calc(-0.09 * var(--is) * var(--u));
+  }
+  .pw-title:last-child { margin-bottom: calc(-0.05 * var(--ts) * var(--u)); }
+
+  .pw-empty {
+    position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    font-style: italic; font-size: calc(20 * var(--u));
+  }
+</style>
+
+{% comment %}
+  One patent in one layout. layout = the view's name, p = its plan from the manifest
+  (a, d, c, h, t, ts), r = its reference size and caption style. Positions go in a
+  <style> scoped to layout + patent id, so two of these in one mashup can't clash.
+{% endcomment %}
+{% template patent %}
+{% assign k = layout | append: "-" | append: id %}
+{% if p.a == "side" %}{% assign lg = r.slg %}{% else %}{% assign lg = r.lg %}{% endif %}
+<style>
+  .pw-{{ k }} .pw-canvas { --rw: {{ r.w | default: 800 }}; --rh: {{ r.h | default: 480 }}; }
+  .pw-{{ k }} .pw-drawing { --x: {{ p.d[0] }}; --y: {{ p.d[1] }}; --w: {{ p.d[2] }}; --h: {{ p.d[3] }}; }
+  .pw-{{ k }} .pw-caption {
+    --x: {{ p.c[0] }}; --y: {{ p.c[1] }}; --w: {{ p.c[2] }}; --h: {{ p.c[3] }};
+    --hs: {{ r.hs }}; --ts: {{ p.ts }}; --is: {{ r.is }}; --lg: {{ lg }}; --rg: {{ r.rg }}; --rw2: {{ r.rw }};
+  }
+</style>
+<div class="layout pw-layout">
+  <div class="pw pw-{{ k }}">
+    <div class="pw-canvas">
+      {% if p and image_url %}
+        <img class="image pw-box pw-drawing" src="{{ image_url }}" alt="">
+        <div class="pw-box pw-caption">
+          {% if r.rule %}<div class="pw-rule"></div>{% endif %}
+          <div class="pw-header">{% for line in p.h %}<span>{{ line }}</span>{% endfor %}</div>
+          <div class="pw-title">{% for line in p.t %}<span>{{ line }}</span>{% endfor %}</div>
+          {% if inventors != blank %}<div class="pw-inventors">{{ inventors }}</div>{% endif %}
+        </div>
+      {% else %}
+        <div class="pw-empty">{{ error | default: "No patent to show yet." }}</div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endtemplate %}

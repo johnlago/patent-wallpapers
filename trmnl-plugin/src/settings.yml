@@ -1,0 +1,23 @@
+#
+# Changes to this file will be overwritten by `trmnlp pull`.
+#
+# Docs: https://help.trmnl.com/en/articles/10542599-importing-and-exporting-private-plugins#h_581fb988f0
+#
+---
+strategy: polling
+no_screen_padding: 'yes'
+dark_mode: 'no'
+static_data: ''
+polling_verb: get
+framework_version: latest
+polling_url: https://johnlago.github.io/patent-wallpapers/plugin/manifest.json
+polling_headers: ''
+name: Patent of the Moment
+description: Quirky U.S. patent drawings
+refresh_interval: 15
+custom_fields:
+- keyname: author_bio
+  name: About This Plugin
+  field_type: author_bio
+  description: A different odd, funny or quirky U.S. patent drawing on every refresh, with its number, year, title and inventors. U.S. patent drawings are public domain.
+  github_url: https://github.com/johnlago/patent-wallpapers
