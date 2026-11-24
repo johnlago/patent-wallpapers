@@ -43,7 +43,7 @@ with a new image is slower because the device converts it once.
 ## Pipeline
 
 ```bash
-pip install -r requirements.txt   # just Pillow
+pip install -r requirements.txt   # Pillow + fontTools
 make            # fetch + build
 make fetch      # download metadata + drawing sheets into cache/
 make build      # render output/{2bpp,gray-2000,preview}/ and output/contact-sheet.png
@@ -71,6 +71,9 @@ make build      # render output/{2bpp,gray-2000,preview}/ and output/contact-she
      are left in full grayscale.
 
   Captions are set in Bookerly from `~/Library/Fonts`, falling back to Georgia.
+  The patent-number line is set in true small caps from Bookerly Display. Pillow
+  can't switch on OpenType features, so the build derives a copy of the font whose
+  lowercase letters and digits map to its small-cap glyphs (`cache/fonts/`).
   To use another font, drop `regular.ttf` and `italic.ttf` into a `fonts/` folder.
   Caption sizes and spacing are under `[style]` in `patents.toml`. Lines are placed
   by measured cap height and baseline, so the gaps there are the gaps you see.

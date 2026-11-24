@@ -33,7 +33,39 @@ FONT_CANDIDATES = {
 }
 
 
+SMALLCAPS_SOURCE = "~/Library/Fonts/Bookerly Display.ttf"
+
+
+def smallcaps_font_path() -> Path | None:
+    """Pillow here can't switch on OpenType features (no raqm), so derive a font
+    whose character map points straight at Bookerly Display's true small-cap
+    glyphs: lowercase letters and digits render as small caps; capitals stay
+    full caps. Built once into cache/fonts/."""
+    src = Path(SMALLCAPS_SOURCE).expanduser()
+    dst = CACHE / "fonts" / "BookerlyDisplay-SmallCaps.ttf"
+    if dst.exists():
+        return dst
+    if not src.exists():
+        return None
+    from fontTools.ttLib import TTFont
+    f = TTFont(str(src))
+    glyphs = set(f.getGlyphOrder())
+    for table in f["cmap"].tables:
+        if not table.isUnicode():
+            continue
+        for cp, g in list(table.cmap.items()):
+            ch = chr(cp)
+            if (ch.islower() or ch.isdigit()) and f"{g}.smcp" in glyphs:
+                table.cmap[cp] = f"{g}.smcp"
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    f.save(str(dst))
+    return dst
+
+
 def font(kind: str, size: int) -> ImageFont.FreeTypeFont:
+    if kind == "smallcaps":
+        path = smallcaps_font_path()
+        return ImageFont.truetype(str(path), size) if path else font("regular", size)
     for p in FONT_CANDIDATES[kind]:
         path = Path(p).expanduser() if p[0] in "/~" else ROOT / p
         if path.exists():
@@ -294,11 +326,12 @@ def caption_block(meta: dict, entry: dict, style: dict, width: int):
     moves it (negative = up) without moving the header or inventor lines.
     """
     year = (meta.get("publication_date") or "")[:4]
-    header = f"U.S. PATENT NO. {pretty_number(meta['number'])}" + (f"  ·  {year}" if year else "")
+    # Set in caps + small caps (lowercase letters and figures render as small caps).
+    header = f"U.S. Patent No. {pretty_number(meta['number'])}" + (f"  ·  {year}" if year else "")
     title = nice_title(entry.get("title") or meta["title"])
     inventor = entry.get("inventor") or ", ".join(tidy_name(n) for n in meta.get("inventors", [])[:2])
 
-    fh, fi = font("regular", style["header_size"]), font("regular", style["inventor_size"])
+    fh, fi = font("smallcaps", style["header_size"]), font("regular", style["inventor_size"])
     # Title: one line if it fits, else the best two-line split. If even that
     # overflows, step the size down until it fits (never more than two lines).
     size, title_lines = set_title(title, style["title_size"], style.get("title_min_size", 16), width)
