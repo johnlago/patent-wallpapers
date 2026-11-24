@@ -163,15 +163,13 @@ def quantize(im: Image.Image, levels: int) -> Image.Image:
 # ---------------------------------------------------------------- captions
 
 TWO_LINE_RATIO = 0.75  # ideal first-line width as a fraction of the second
-TWO_LINE_MIN_FIRST = 0.5  # a first line narrower than this (a stub) is a last resort
 
 
 def wrap_two(text: str, f: ImageFont.FreeTypeFont, width: int) -> list[str] | None:
     """Best two-line split, or None if no split fits. Prefers the first line
     at ~75% of the second (a short line over a longer one); a first line wider
     than the second is penalised, so marginal cases break earlier
-    ("Device for waking / persons from sleep"). A stubby first line (under
-    half the second, e.g. "Method of / ...") is penalised harder still.
+    ("Device for waking / persons from sleep").
     """
     words = text.split()
     best = None
@@ -181,7 +179,7 @@ def wrap_two(text: str, f: ImageFont.FreeTypeFont, width: int) -> list[str] | No
         if max(w1, w2) > width:
             continue
         q = w1 / w2
-        cost = (q - TWO_LINE_RATIO) ** 2 + (1.0 if q > 1 else 0.0) + (2.0 if q < TWO_LINE_MIN_FIRST else 0.0)
+        cost = (q - TWO_LINE_RATIO) ** 2 + (1.0 if q > 1 else 0.0)
         if best is None or cost < best[0]:
             best = (cost, [l1, l2])
     return best[1] if best else None

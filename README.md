@@ -77,8 +77,6 @@ make build      # render output/{2bpp,gray-2000,preview}/ and output/contact-she
   Titles never run past two lines: if a title won't fit, its size steps down
   toward `title_min_size`. A two-line split aims for a first line about 75% as
   wide as the second, so marginal cases break earlier rather than later.
-  A first line shorter than half the second (a stub like "Method of") is used
-  only as a last resort.
 
 ### Adding a wallpaper
 
