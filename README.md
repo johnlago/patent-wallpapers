@@ -81,10 +81,25 @@ https://johnlago.github.io/patent-wallpapers/current/quadrant.png
 ```
 
 The site's index page shows all four, and `current.json` says which patent
-each one is. Each layout walks its own shuffled order of the whole set, so
-nothing repeats until every patent has been shown, and a mashup shows a
-different patent in each slot. Picks depend only on the time, so the Action
-keeps no state.
+each one is.
+
+How picks work:
+- **Slots.** Time is cut into 6-hour slots: Unix time ÷ 21,600, so slots
+  change at 00:00, 06:00, 12:00 and 18:00 UTC. Picks depend only on the slot,
+  so the Action keeps no state, and any run within a slot serves the same images.
+- **Shuffle.** Each layout walks its own shuffled order of the whole set, so
+  nothing repeats until every patent has been shown (about 12.5 days for 50).
+  Then it reshuffles. A mashup usually shows a different patent in each slot.
+- **New patents go first.** A newly pushed patent shows right away in `full`,
+  then in `half_vertical` in the next slot, then `half_horizontal`, then
+  `quadrant`. So it appears once in each layout over its first day, never in
+  two at once. Patents pushed together are staggered one slot apart. The shuffle
+  then leaves it out for one full cycle, so it doesn't turn up again soon.
+  "New" means the image's first commit is after `NEW_AFTER` in `src/rotate.py`;
+  the date comes from git history.
+- **Known repeats.** Adding a patent changes the set size, which reshuffles
+  every layout's order, so expect a few repeats around additions. The last
+  patent of one cycle can also be the first of the next.
 
 **On the TRMNL:** add an **Image Display** plugin with the `full.png` URL. For
 mashups, add one more Image Display plugin per slot shape, each pointing at
@@ -93,7 +108,7 @@ the matching URL. Image Display notices the new image through its `ETag` /
 
 **Adding a patent:** add a `[[wallpaper]]` entry, run `make`, check
 `output/trmnl/contact-*.png`, then commit and push. The push redeploys, and the
-new patent joins the rotation. The Action only rotates committed images and
+new patent goes up straight away in the full-screen layout. The Action only rotates committed images and
 never builds, so nothing reaches the screen without being looked at first.
 
 GitHub pauses scheduled workflows in a public repo after 60 days with no
