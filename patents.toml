@@ -1,0 +1,116 @@
+# Wallpaper set definition.
+#
+# [device]   target screen. Eegoread A4: 3.98" E Ink, 552 x 768 portrait, 238 PPI,
+#            2 bits per pixel on the panel (4 gray levels).
+# [style]    layout knobs shared by every wallpaper.
+# [[wallpaper]] one entry per wallpaper:
+#   patent   Google Patents number (old patents need the kind code, e.g. US730918A)
+#   sheet    which drawing sheet to use (index into cache/<patent>/sheet-NN.png)
+#   crop     optional [left, top, right, bottom] as fractions of the sheet, applied
+#            before the automatic whitespace trim. Use it to drop sheet headers,
+#            signatures, scan borders, or to isolate one figure.
+#   rotate   optional degrees counter-clockwise (90 / 180 / 270)
+#   title    optional override for the patent title (some OCR'd titles are garbage)
+#   inventor optional override / addition when Google lists none
+#   strip_header  drop the lone printed header line on modern sheets (default true)
+#   paper    gray value above which pixels become white paper (default 185)
+#   despeckle median-filter size for scan specks (default 3, 0 = off)
+#   weight   optional line-thickening strength (0 = none, default 1). Raise for
+#            hairline drawings that would vanish when downscaled.
+
+[device]
+name = "Eegoread A4"
+width = 552
+height = 768
+levels = 4            # gray levels the panel can show
+
+[style]
+margin = 26           # px around the drawing
+header_size = 13      # "U.S. PATENT 6,293,874 · 2001"
+title_size = 21
+inventor_size = 13
+caption_gap = 14      # px between drawing and caption block
+
+[[wallpaper]]
+patent = "US6293874"
+sheet = 0
+
+[[wallpaper]]
+patent = "US556248A"
+strip_header = false
+sheet = 0
+crop = [0.0, 0.07, 1.0, 0.86]
+title = "Saluting device"
+inventor = "James C. Boyle"
+despeckle = 5
+
+[[wallpaper]]
+patent = "US730918A"
+strip_header = false
+sheet = 0
+crop = [0.0, 0.08, 1.0, 0.84]
+title = "Eye-protector for chickens"
+
+[[wallpaper]]
+patent = "US4022227"
+sheet = 0
+
+[[wallpaper]]
+patent = "US256265A"
+strip_header = false
+sheet = 0
+crop = [0.0, 0.08, 1.0, 0.82]
+title = "Device for waking persons from sleep"
+
+[[wallpaper]]
+patent = "US5443036"
+sheet = 0
+crop = [0.0, 0.0, 1.0, 0.55]
+
+[[wallpaper]]
+patent = "US3216423"
+strip_header = false
+sheet = 0
+crop = [0.0, 0.07, 1.0, 0.86]
+
+[[wallpaper]]
+patent = "US5971829"
+sheet = 0
+
+[[wallpaper]]
+patent = "US11942A"
+strip_header = false
+sheet = 0
+crop = [0.0, 0.09, 1.0, 0.82]
+title = "Tapeworm-trap"
+paper = 150
+despeckle = 5
+inventor = "Alpheus Myers"
+
+[[wallpaper]]
+patent = "US4233942"
+sheet = 0
+
+[[wallpaper]]
+patent = "US5457821"
+sheet = 0
+
+[[wallpaper]]
+patent = "US4344424"
+sheet = 0
+
+[[wallpaper]]
+patent = "US81437A"
+strip_header = false
+sheet = 0
+crop = [0.0, 0.07, 1.0, 0.86]
+title = "Improved burial-case"
+inventor = "Franz Vester"
+
+[[wallpaper]]
+patent = "US4984302"
+sheet = 3
+
+[[wallpaper]]
+patent = "US6004596"
+sheet = 2
