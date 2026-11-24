@@ -263,6 +263,14 @@ def wrap(text: str, f: ImageFont.FreeTypeFont, width: int) -> list[str]:
     return list(best(0, n)[1])
 
 
+def tidy_name(name: str) -> str:
+    """Consistent punctuation for inventor names: a period after every single-
+    letter initial ("Samuel S Applegate" -> "Samuel S. Applegate") and after
+    Jr/Sr ("Andrew Jackson Jr" -> "Andrew Jackson Jr.")."""
+    name = re.sub(r"\b([A-Z])\b(?!\.)", r"\1.", name)
+    return re.sub(r"\b(Jr|Sr)\b(?!\.)", r"\1.", name)
+
+
 def pretty_number(number: str) -> str:
     digits = re.sub(r"\D", "", number)
     return f"{int(digits):,}"
@@ -286,9 +294,9 @@ def caption_block(meta: dict, entry: dict, style: dict, width: int):
     moves it (negative = up) without moving the header or inventor lines.
     """
     year = (meta.get("publication_date") or "")[:4]
-    header = f"U.S. PATENT  {pretty_number(meta['number'])}" + (f"  ·  {year}" if year else "")
+    header = f"U.S. PATENT NO. {pretty_number(meta['number'])}" + (f"  ·  {year}" if year else "")
     title = nice_title(entry.get("title") or meta["title"])
-    inventor = entry.get("inventor") or ", ".join(meta.get("inventors", [])[:2])
+    inventor = entry.get("inventor") or ", ".join(tidy_name(n) for n in meta.get("inventors", [])[:2])
 
     fh, fi = font("regular", style["header_size"]), font("regular", style["inventor_size"])
     # Title: one line if it fits, else the best two-line split. If even that
