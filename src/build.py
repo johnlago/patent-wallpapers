@@ -5,13 +5,15 @@ Usage:
     python src/build.py US730918A    # build only the listed patents
 
 Output (sizes come from [device] in patents.toml):
-    output/light/*.bmp     black drawing on white   -> copy to SD card /.sleep/
+    output/2bpp/*.bmp      true 2-bit, exact screen size: shown pixel-for-pixel -> SD card /.sleep/
+    output/gray/*.bmp      8-bit full grayscale: CrossPoint converts + dithers it on first sleep
     output/preview/*.png   PNG copies of the light set, for browsing
     output/contact-sheet.png
 """
 from __future__ import annotations
 
 import json
+import struct
 import re
 import sys
 import tomllib
@@ -242,14 +244,38 @@ def build_one(entry: dict, device: dict, style: dict) -> tuple[str, Image.Image]
     dy = m + (box_h - drawing.height) // 2
     canvas.paste(drawing, (dx, dy))
     draw_caption(ImageDraw.Draw(canvas), m, H - m - cap_h)
-    return slug(meta, entry), quantize(canvas, device["levels"])
+    return slug(meta, entry), canvas
 
 
-def save_bmp(im: Image.Image, path: Path) -> None:
-    # Mode "L" saves as an uncompressed 8-bit grayscale-palette BMP, which
-    # CrossPoint's Bitmap loader accepts (it takes 1/2/4/8/24/32 bpp).
-    # Pixels are already snapped to the panel's gray levels, so the device
-    # shows exactly this image with no dithering of its own.
+def save_bmp_2bpp(im: Image.Image, path: Path) -> None:
+    """Write a true 2-bit BMP with a 4-entry palette (black, dark, light, white).
+
+    CrossPoint draws a sleep image as-is only when it is exactly screen-sized
+    and <= 2 bpp. Anything else (including 8-bit BMPs whose pixels already sit
+    on the 4 levels) goes through its converter, which Atkinson-dithers with
+    X4-tuned thresholds (<45 black, <70 dark, <140 light, else white) and turns
+    our dark gray into light gray and our light gray into white.
+    `im` must already be quantized to 0/85/170/255.
+    """
+    w, h = im.size
+    row_bytes = (w * 2 + 31) // 32 * 4
+    px = im.load()
+    rows = bytearray()
+    for y in range(h - 1, -1, -1):  # bottom-up
+        row = bytearray(row_bytes)
+        for x in range(w):
+            level = min(3, round(px[x, y] / 85))
+            row[x >> 2] |= level << (6 - (x & 3) * 2)
+        rows += row
+    palette = b"".join(bytes((g, g, g, 0)) for g in (0, 85, 170, 255))
+    off = 14 + 40 + len(palette)
+    header = b"BM" + struct.pack("<IHHI", off + len(rows), 0, 0, off)
+    info = struct.pack("<IiiHHIIiiII", 40, w, h, 1, 2, 0, len(rows), 9370, 9370, 4, 4)
+    path.write_bytes(header + info + palette + rows)
+
+
+def save_bmp_gray(im: Image.Image, path: Path) -> None:
+    # Full 8-bit grayscale, no pre-quantization: CrossPoint converts and dithers it.
     im.save(path, format="BMP")
 
 
@@ -269,7 +295,7 @@ def main(argv: list[str]) -> None:
     cfg = tomllib.loads((ROOT / "patents.toml").read_text())
     device, style = cfg["device"], cfg["style"]
     entries = [e for e in cfg["wallpaper"] if not argv or e["patent"] in argv]
-    for sub in ("light", "preview"):
+    for sub in ("2bpp", "gray", "preview"):
         (OUT / sub).mkdir(parents=True, exist_ok=True)
 
     built = []
@@ -277,8 +303,10 @@ def main(argv: list[str]) -> None:
         if not (CACHE / e["patent"] / "meta.json").exists():
             print(f"{e['patent']}: not cached, run src/fetch.py first")
             continue
-        name, im = build_one(e, device, style)
-        save_bmp(im, OUT / "light" / f"{name}.bmp")
+        name, gray = build_one(e, device, style)
+        im = quantize(gray, device["levels"])
+        save_bmp_2bpp(im, OUT / "2bpp" / f"{name}.bmp")
+        save_bmp_gray(gray, OUT / "gray" / f"{name}.bmp")
         im.save(OUT / "preview" / f"{name}.png", optimize=True)
         built.append(im)
         print(f"built {name}")

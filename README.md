@@ -12,17 +12,28 @@ Odd, funny, and quirky U.S. patent drawings, formatted as sleep screens for the
 | Screen | 3.98" E Ink, UC8279C controller |
 | Resolution | **552 × 768** portrait (panel is 768 × 552 native, 238 PPI) |
 | Gray levels | 4 (2 bits per pixel), so images are pre-quantized to 0 / 85 / 170 / 255 |
-| File | uncompressed 8-bit grayscale BMP (CrossPoint reads 1/2/4/8/24/32-bit BMP) |
+| File | **2-bit BMP**, 4-entry palette, exactly 552 × 768 |
 
-Because the images are already at native size and already on the panel's four
-gray levels, the device shows them pixel-for-pixel with no scaling or dithering.
+CrossPoint shows a sleep image directly only when it is exactly screen-sized
+and 2 bits per pixel or less. Anything else goes through its converter
+(`BmpToBmpConverter`), which Atkinson-dithers with X4-tuned thresholds: below 45
+is black, below 70 dark gray, below 140 light gray, and the rest white. That
+lightens mid-grays, so anti-aliased text turns wispy. This applies even to
+8-bit files whose pixels already sit on the 4 levels.
+
+The build therefore writes two sets:
+
+- `output/2bpp/`: recommended. True 2-bit files the device shows
+  pixel-for-pixel.
+- `output/gray/`: 8-bit full grayscale with no pre-quantization, for when you'd
+  rather let CrossPoint do the conversion.
 
 ## Install on the device
 
 1. Copy the BMPs to a `.sleep` folder at the root of the SD card. A folder named
    `sleep` also works.
    ```bash
-   mkdir -p /Volumes/SDCARD/.sleep && cp output/light/*.bmp /Volumes/SDCARD/.sleep/
+   mkdir -p /Volumes/SDCARD/.sleep && cp output/2bpp/*.bmp /Volumes/SDCARD/.sleep/
    ```
 2. On the device, set **Settings → Sleep Screen** to **Custom**.
 
@@ -35,7 +46,7 @@ with a new image is slower because the device converts it once.
 pip install -r requirements.txt   # just Pillow
 make            # fetch + build
 make fetch      # download metadata + drawing sheets into cache/
-make build      # render output/{light,preview}/ and output/contact-sheet.png
+make build      # render output/{2bpp,gray,preview}/ and output/contact-sheet.png
 ```
 
 - `src/fetch.py` pulls each patent's Google Patents page through `curl`, because
@@ -54,7 +65,8 @@ make build      # render output/{light,preview}/ and output/contact-sheet.png
   6. Lines are thickened before the ~4–5× downscale, so hairlines survive.
   7. The drawing is fitted into the frame above a caption with the patent
      number, year, title, and inventor.
-  8. The result is snapped to the device's gray levels.
+  8. The 2bpp set is snapped to the device's 4 gray levels. The gray set is left
+     as is.
 
   Captions are set in Bookerly from `~/Library/Fonts`, falling back to Georgia.
   To use another font, drop `regular.ttf` and `italic.ttf` into a `fonts/` folder.
