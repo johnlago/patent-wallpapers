@@ -294,7 +294,7 @@ def caption_block(meta: dict, entry: dict, style: dict, width: int):
     moves it (negative = up) without moving the header or inventor lines.
     """
     year = (meta.get("publication_date") or "")[:4]
-    header = f"U.S. PATENT No. {pretty_number(meta['number'])}" + (f"  ·  {year}" if year else "")
+    header = f"U.S. PATENT NO. {pretty_number(meta['number'])}" + (f"  ·  {year}" if year else "")
     title = nice_title(entry.get("title") or meta["title"])
     inventor = entry.get("inventor") or ", ".join(tidy_name(n) for n in meta.get("inventors", [])[:2])
 

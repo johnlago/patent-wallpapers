@@ -27,7 +27,7 @@ reference_height = 2000  # also render full-grayscale PNGs at this height
 
 [style]
 margin = 38           # px around everything
-header_size = 19      # "U.S. PATENT No. 6,293,874 · 2001"
+header_size = 19      # "U.S. PATENT NO. 6,293,874 · 2001"
 title_size = 31
 title_min_size = 18   # titles shrink toward this to stay within two lines
 inventor_size = 19
