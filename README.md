@@ -21,12 +21,12 @@ is black, below 70 dark gray, below 140 light gray, and the rest white. That
 lightens mid-grays, so anti-aliased text turns wispy. This applies even to
 8-bit files whose pixels already sit on the 4 levels.
 
-The build therefore writes two sets:
+So the device set is written as true 2-bit files (`output/2bpp/`), which the
+device shows pixel-for-pixel.
 
-- `output/2bpp/`: recommended. True 2-bit files the device shows
-  pixel-for-pixel.
-- `output/gray/`: 8-bit full grayscale with no pre-quantization, for when you'd
-  rather let CrossPoint do the conversion.
+Each wallpaper also gets a full-grayscale reference PNG with the same layout
+scaled to 2000 px tall (`output/gray-2000/`). Set `reference_height` in
+`[device]` to change that height.
 
 ## Install on the device
 
@@ -46,7 +46,7 @@ with a new image is slower because the device converts it once.
 pip install -r requirements.txt   # just Pillow
 make            # fetch + build
 make fetch      # download metadata + drawing sheets into cache/
-make build      # render output/{2bpp,gray,preview}/ and output/contact-sheet.png
+make build      # render output/{2bpp,gray-2000,preview}/ and output/contact-sheet.png
 ```
 
 - `src/fetch.py` pulls each patent's Google Patents page through `curl`, because
@@ -61,17 +61,22 @@ make build      # render output/{2bpp,gray,preview}/ and output/contact-sheet.pn
   3. A median filter (`despeckle`) removes scan specks.
   4. Header stripping detects and removes the lone printed "U.S. Patent … Sheet N
      of M" line on modern sheets.
-  5. An auto-trim crops to the ink.
+  5. The drawing is re-centred on its real content. Ink is grouped into clusters,
+     and tiny isolated clusters (scan specks, smudges near the sheet edge) are
+     ignored when cropping.
   6. Lines are thickened before the ~4–5× downscale, so hairlines survive.
   7. The drawing is fitted into the frame above a caption with the patent
      number, year, title, and inventor.
-  8. The 2bpp set is snapped to the device's 4 gray levels. The gray set is left
-     as is.
+  8. The 2bpp set is snapped to the device's 4 gray levels. The reference PNGs
+     are left in full grayscale.
 
   Captions are set in Bookerly from `~/Library/Fonts`, falling back to Georgia.
   To use another font, drop `regular.ttf` and `italic.ttf` into a `fonts/` folder.
   Caption sizes and spacing are under `[style]` in `patents.toml`. Lines are placed
   by measured cap height and baseline, so the gaps there are the gaps you see.
+  Titles never run past two lines: if a title won't fit, its size steps down
+  toward `title_min_size`. A two-line split aims for a second line about 75% as
+  wide as the first, so marginal cases break later rather than earlier.
 
 ### Adding a wallpaper
 

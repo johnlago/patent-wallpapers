@@ -23,16 +23,18 @@ name = "Eegoread A4"
 width = 552
 height = 768
 levels = 4            # gray levels the panel can show
+reference_height = 2000  # also render full-grayscale PNGs at this height
 
 [style]
 margin = 38           # px around everything
 header_size = 19      # "U.S. PATENT 6,293,874 · 2001"
 title_size = 31
+title_min_size = 18   # titles shrink toward this to stay within two lines
 inventor_size = 19
 caption_gap = 30      # px between drawing and the divider rule
 rule_gap = 24         # px between the divider rule and the header's cap height
 line_gap = 20         # visual gap between caption lines (baseline to cap height)
-title_nudge = 0       # push the title down to optically centre it
+title_nudge = -2      # move the title (negative = up) to optically centre it
 rule_width = 36       # half-width of the divider rule
 
 [[wallpaper]]

@@ -6,8 +6,8 @@ Usage:
 
 Output (sizes come from [device] in patents.toml):
     output/2bpp/*.bmp      true 2-bit, exact screen size: shown pixel-for-pixel -> SD card /.sleep/
-    output/gray/*.bmp      8-bit full grayscale: CrossPoint converts + dithers it on first sleep
-    output/preview/*.png   PNG copies of the light set, for browsing
+    output/gray-2000/*.png full-grayscale reference copies, same layout scaled to 2000 px tall
+    output/preview/*.png   PNG copies of the 2bpp set, for browsing
     output/contact-sheet.png
 """
 from __future__ import annotations
@@ -43,16 +43,48 @@ def font(kind: str, size: int) -> ImageFont.FreeTypeFont:
 
 # ---------------------------------------------------------------- drawing prep
 
-def ink_bbox(im: Image.Image, pad: int = 12) -> tuple[int, int, int, int]:
-    """Bounding box of real ink, ignoring isolated scan specks."""
-    f = 8
+def ink_clusters(im: Image.Image, f: int = 8, link: int = 6) -> list[dict]:
+    """Group ink into clusters: marks within ~2*link*f source px of each other
+    join the same cluster. Returns [{mass, box}] with boxes in source pixels."""
     small = im.resize((max(1, im.width // f), max(1, im.height // f)), Image.Resampling.BOX)
     mask = small.point(lambda v: 255 if v < 238 else 0)
-    box = mask.getbbox()
-    if not box:
+    linked = mask.filter(ImageFilter.MaxFilter(2 * link + 1))
+    w, h = mask.size
+    mp, lp = mask.load(), linked.load()
+    seen = bytearray(w * h)
+    clusters = []
+    for y0 in range(h):
+        for x0 in range(w):
+            if not lp[x0, y0] or seen[y0 * w + x0]:
+                continue
+            stack, mass, box = [(x0, y0)], 0, [w, h, 0, 0]
+            seen[y0 * w + x0] = 1
+            while stack:
+                x, y = stack.pop()
+                if mp[x, y]:
+                    mass += 1
+                    box = [min(box[0], x), min(box[1], y), max(box[2], x + 1), max(box[3], y + 1)]
+                for nx, ny in ((x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)):
+                    if 0 <= nx < w and 0 <= ny < h and lp[nx, ny] and not seen[ny * w + nx]:
+                        seen[ny * w + nx] = 1
+                        stack.append((nx, ny))
+            if mass:
+                clusters.append({"mass": mass, "box": tuple(c * f for c in box)})
+    return clusters
+
+
+def ink_bbox(im: Image.Image, pad: int = 12, min_share: float = 0.003) -> tuple[int, int, int, int]:
+    """Bounding box of the real drawing. Isolated scan specks and smudges (tiny,
+    far-away clusters) are ignored, so the drawing is re-centred on its actual
+    content instead of on stray marks near the sheet edge."""
+    clusters = ink_clusters(im)
+    if not clusters:
         return (0, 0, im.width, im.height)
-    l, t, r, b = (c * f for c in box)
-    return (max(0, l - pad), max(0, t - pad), min(im.width, r + pad), min(im.height, b + pad))
+    total = sum(c["mass"] for c in clusters)
+    keep = [c["box"] for c in clusters if c["mass"] >= min_share * total] or [c["box"] for c in clusters]
+    l, t = min(b[0] for b in keep), min(b[1] for b in keep)
+    r, b_ = max(b[2] for b in keep), max(b[3] for b in keep)
+    return (max(0, l - pad), max(0, t - pad), min(im.width, r + pad), min(im.height, b_ + pad))
 
 
 def ink_bands(im: Image.Image) -> list[tuple[int, int]]:
@@ -130,6 +162,28 @@ def quantize(im: Image.Image, levels: int) -> Image.Image:
 
 # ---------------------------------------------------------------- captions
 
+TWO_LINE_RATIO = 0.75  # ideal second-line width as a fraction of the first
+
+
+def wrap_two(text: str, f: ImageFont.FreeTypeFont, width: int) -> list[str] | None:
+    """Best two-line split, or None if no split fits. Prefers the second line
+    at ~75% of the first; a second line wider than the first is penalised, so
+    marginal cases ("Device for waking / persons from sleep") break later
+    ("Device for waking persons / from sleep")."""
+    words = text.split()
+    best = None
+    for k in range(1, len(words)):
+        l1, l2 = " ".join(words[:k]), " ".join(words[k:])
+        w1, w2 = f.getlength(l1), f.getlength(l2)
+        if max(w1, w2) > width:
+            continue
+        r = w2 / w1
+        cost = (r - TWO_LINE_RATIO) ** 2 + (1.0 if r > 1 else 0.0)
+        if best is None or cost < best[0]:
+            best = (cost, [l1, l2])
+    return best[1] if best else None
+
+
 def wrap(text: str, f: ImageFont.FreeTypeFont, width: int) -> list[str]:
     """Balanced wrap: use as few lines as greedy wrapping would, but choose the
     breaks that minimise the summed squared slack of every line (last included),
@@ -189,16 +243,30 @@ def caption_block(meta: dict, entry: dict, style: dict, width: int):
     Lines are placed by baseline and cap height (not font size) so the visual
     gaps are what we ask for: rule -> header, header -> title, title -> inventor.
     The title sits optically centred between header and inventor; `title_nudge`
-    shifts it down a touch to compensate for italic descenders below it.
+    moves it (negative = up) without moving the header or inventor lines.
     """
     year = (meta.get("publication_date") or "")[:4]
     header = f"U.S. PATENT  {pretty_number(meta['number'])}" + (f"  ·  {year}" if year else "")
     title = nice_title(entry.get("title") or meta["title"])
     inventor = entry.get("inventor") or ", ".join(meta.get("inventors", [])[:2])
 
-    fh, ft, fi = font("regular", style["header_size"]), font("italic", style["title_size"]), font("regular", style["inventor_size"])
-    title_lines = wrap(title, ft, width)
-    lead = round(style["title_size"] * 1.22)
+    fh, fi = font("regular", style["header_size"]), font("regular", style["inventor_size"])
+    # Title: one line if it fits, else the best two-line split. If even that
+    # overflows, step the size down until it fits (never more than two lines).
+    size = style["title_size"]
+    while True:
+        ft = font("italic", size)
+        if ft.getlength(title) <= width:
+            title_lines = [title]
+            break
+        title_lines = wrap_two(title, ft, width)
+        if title_lines:
+            break
+        if size <= style.get("title_min_size", 16):
+            title_lines = wrap(title, ft, width)
+            break
+        size -= 1
+    lead = round(size * 1.22)
     ch, ct, ci = cap_height(fh), cap_height(ft), cap_height(fi)
     rule_gap, line_gap, nudge = style["rule_gap"], style["line_gap"], style.get("title_nudge", 0)
 
@@ -213,7 +281,7 @@ def caption_block(meta: dict, entry: dict, style: dict, width: int):
     def draw(d: ImageDraw.ImageDraw, x0: int, y0: int):
         cx = x0 + width // 2
         hw = style.get("rule_width", 36)
-        d.line([(cx - hw, y0), (cx + hw, y0)], fill=0, width=1)
+        d.line([(cx - hw, y0), (cx + hw, y0)], fill=0, width=style.get("rule_thickness", 1))
         d.text((cx, y0 + header_base), header, font=fh, fill=0, anchor="ms")
         for i, line in enumerate(title_lines):
             d.text((cx, y0 + title_base0 + i * lead), line, font=ft, fill=0, anchor="ms")
@@ -230,9 +298,14 @@ def slug(meta: dict, entry: dict) -> str:
     return f"{meta['number'].lower()}-" + "-".join(words[:5])
 
 
-def build_one(entry: dict, device: dict, style: dict) -> tuple[str, Image.Image]:
+def build_one(entry: dict, device: dict, style: dict, height: int | None = None) -> tuple[str, Image.Image]:
+    """Compose one wallpaper. With `height`, the whole layout (margins, type,
+    spacing) is scaled up proportionally to that canvas height."""
     meta = json.loads((CACHE / entry["patent"] / "meta.json").read_text())
-    W, H, m = device["width"], device["height"], style["margin"]
+    k = (height / device["height"]) if height else 1.0
+    style = {key: (round(v * k) if isinstance(v, (int, float)) else v) for key, v in style.items()}
+    style["rule_thickness"] = max(1, round(k))
+    W, H, m = round(device["width"] * k), round(device["height"] * k), style["margin"]
     cap_h, draw_caption = caption_block(meta, entry, style, W - 2 * m)
 
     box_w, box_h = W - 2 * m, H - 2 * m - cap_h - style["caption_gap"]
@@ -274,11 +347,6 @@ def save_bmp_2bpp(im: Image.Image, path: Path) -> None:
     path.write_bytes(header + info + palette + rows)
 
 
-def save_bmp_gray(im: Image.Image, path: Path) -> None:
-    # Full 8-bit grayscale, no pre-quantization: CrossPoint converts and dithers it.
-    im.save(path, format="BMP")
-
-
 def contact_sheet(images: list[Image.Image], path: Path, cols: int = 5) -> None:
     w, h = images[0].size
     t = 0.4
@@ -295,7 +363,8 @@ def main(argv: list[str]) -> None:
     cfg = tomllib.loads((ROOT / "patents.toml").read_text())
     device, style = cfg["device"], cfg["style"]
     entries = [e for e in cfg["wallpaper"] if not argv or e["patent"] in argv]
-    for sub in ("2bpp", "gray", "preview"):
+    ref_h = device.get("reference_height", 2000)
+    for sub in ("2bpp", f"gray-{ref_h}", "preview"):
         (OUT / sub).mkdir(parents=True, exist_ok=True)
 
     built = []
@@ -306,7 +375,8 @@ def main(argv: list[str]) -> None:
         name, gray = build_one(e, device, style)
         im = quantize(gray, device["levels"])
         save_bmp_2bpp(im, OUT / "2bpp" / f"{name}.bmp")
-        save_bmp_gray(gray, OUT / "gray" / f"{name}.bmp")
+        _, ref = build_one(e, device, style, height=ref_h)
+        ref.save(OUT / f"gray-{ref_h}" / f"{name}.png", optimize=True)
         im.save(OUT / "preview" / f"{name}.png", optimize=True)
         built.append(im)
         print(f"built {name}")
