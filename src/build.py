@@ -162,14 +162,17 @@ def quantize(im: Image.Image, levels: int) -> Image.Image:
 
 # ---------------------------------------------------------------- captions
 
-TWO_LINE_RATIO = 0.75  # ideal second-line width as a fraction of the first
+TWO_LINE_RATIO = 0.75  # ideal first-line width as a fraction of the second
+TWO_LINE_MIN_FIRST = 0.5  # a first line narrower than this (a stub) is a last resort
 
 
 def wrap_two(text: str, f: ImageFont.FreeTypeFont, width: int) -> list[str] | None:
-    """Best two-line split, or None if no split fits. Prefers the second line
-    at ~75% of the first; a second line wider than the first is penalised, so
-    marginal cases ("Device for waking / persons from sleep") break later
-    ("Device for waking persons / from sleep")."""
+    """Best two-line split, or None if no split fits. Prefers the first line
+    at ~75% of the second (a short line over a longer one); a first line wider
+    than the second is penalised, so marginal cases break earlier
+    ("Device for waking / persons from sleep"). A stubby first line (under
+    half the second, e.g. "Method of / ...") is penalised harder still.
+    """
     words = text.split()
     best = None
     for k in range(1, len(words)):
@@ -177,8 +180,8 @@ def wrap_two(text: str, f: ImageFont.FreeTypeFont, width: int) -> list[str] | No
         w1, w2 = f.getlength(l1), f.getlength(l2)
         if max(w1, w2) > width:
             continue
-        r = w2 / w1
-        cost = (r - TWO_LINE_RATIO) ** 2 + (1.0 if r > 1 else 0.0)
+        q = w1 / w2
+        cost = (q - TWO_LINE_RATIO) ** 2 + (1.0 if q > 1 else 0.0) + (2.0 if q < TWO_LINE_MIN_FIRST else 0.0)
         if best is None or cost < best[0]:
             best = (cost, [l1, l2])
     return best[1] if best else None
@@ -269,10 +272,13 @@ def caption_block(meta: dict, entry: dict, style: dict, width: int):
     lead = round(size * 1.22)
     ch, ct, ci = cap_height(fh), cap_height(ft), cap_height(fi)
     rule_gap, line_gap, nudge = style["rule_gap"], style["line_gap"], style.get("title_nudge", 0)
+    # header_nudge < 0 lifts the header (and the rule above it) away from the
+    # title; the caption grows by that much and the drawing box shrinks to match.
+    header_nudge = style.get("header_nudge", 0)
 
     # Baselines, relative to the rule at y=0.
     header_base = rule_gap + ch
-    title_base0 = header_base + line_gap + ct + nudge
+    title_base0 = header_base + line_gap + ct + nudge - header_nudge
     title_last = title_base0 + lead * (len(title_lines) - 1)
     inventor_base = title_last + line_gap + ci - nudge if inventor else title_last
     descent = fi.getbbox("gjpy", anchor="ls")[3] if inventor else ft.getbbox("gjpy", anchor="ls")[3]

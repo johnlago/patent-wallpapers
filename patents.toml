@@ -35,6 +35,7 @@ caption_gap = 30      # px between drawing and the divider rule
 rule_gap = 24         # px between the divider rule and the header's cap height
 line_gap = 20         # visual gap between caption lines (baseline to cap height)
 title_nudge = -2      # move the title (negative = up) to optically centre it
+header_nudge = -1     # move the patent-number line + rule (negative = up)
 rule_width = 36       # half-width of the divider rule
 
 [[wallpaper]]
