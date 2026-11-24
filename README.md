@@ -55,10 +55,17 @@ arrangement:
 
 The mashup slot sizes come from TRMNL's framework CSS: a 10 px gap around and
 between slots on an 800 × 480 screen. Note that TRMNL's Image Display help page
-gives ratios for the TRMNL X, not the original. Files are 2-bit grayscale PNGs
-in `output/trmnl/<layout>/`, with a contact sheet per layout. The build warns if
-any file is over the original TRMNL's 90,000-byte limit. The layout settings
-live under `[trmnl.*]` in `patents.toml`.
+gives ratios for the TRMNL X, not the original. The layout settings live under
+`[trmnl.*]` in `patents.toml`.
+
+Files are **8-bit grayscale PNGs at 2× the slot size** (e.g. 1600 × 960 for
+full) in `output/trmnl/<layout>/`, with a contact sheet per layout. TRMNL's
+Image Display plugin scales and dithers every image itself, so pre-quantizing
+to 4 grays only got re-dithered into speckle, and an exact-size image got
+scaled up slightly into its slot. Midtones are darkened (`gamma = 1.7`) so thin
+lines survive TRMNL's dithering. If the full-screen slot ever moves to the
+**Alias** plugin, which draws the file as-is, it will need exact-size 2-bit
+PNGs again: see git history for the 2-bit writer.
 
 ### Hosting and rotation
 

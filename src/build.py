@@ -147,13 +147,16 @@ def clean_drawing(src: Path, entry: dict) -> Image.Image:
     return im.crop(ink_bbox(im))
 
 
-def fit_drawing(im: Image.Image, entry: dict, box_w: int, box_h: int) -> Image.Image:
-    """Scale a cleaned drawing to fit the box, thickening hairlines first."""
+def fit_drawing(im: Image.Image, entry: dict, box_w: int, box_h: int, supersample: int = 1) -> Image.Image:
+    """Scale a cleaned drawing to fit the box, thickening hairlines first.
+    With `supersample` > 1 the box is that many times the final display size
+    (the display will scale it down), so line weight is chosen for the final size."""
     scale = min(box_w / im.width, box_h / im.height)
     # Thicken lines before downscaling so hairlines survive (~4-5x reduction typical).
     weight = entry.get("weight", 1)
-    if weight and scale < 0.5:
-        k = 3 if scale > 0.22 / weight else 5
+    shown = scale / supersample
+    if weight and shown < 0.5:
+        k = 3 if shown > 0.22 / weight else 5
         im = im.filter(ImageFilter.MinFilter(k))
     size = (max(1, round(im.width * scale)), max(1, round(im.height * scale)))
     return im.resize(size, Image.Resampling.LANCZOS)

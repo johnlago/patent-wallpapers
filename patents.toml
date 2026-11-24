@@ -43,6 +43,7 @@ rule_width = 36       # half-width of the divider rule
 
 # TRMNL (original model: 800 x 480 landscape, ~125 PPI, 4 grays on firmware 1.6+).
 # One image per TRMNL layout; built by src/trmnl.py into output/trmnl/<layout>/.
+# Sizes below are at the TRMNL's own resolution; output is `supersample` x that.
 # Mashup slot sizes are from TRMNL's framework CSS (10 px gap on an 800x480 screen).
 # Each layout keeps the [style] meanings above, plus:
 #   arrangements  "stack" = caption under the drawing, "side" = caption column
@@ -60,7 +61,8 @@ rule_width = 36       # half-width of the divider rule
 #   header_wrap   false keeps "U.S. PATENT NO. ... · year" on one line
 #   max_title_lines  lines a title may wrap to before dropping to title_min_size
 [trmnl]
-levels = 4
+supersample = 2       # render at 2x the slot size; TRMNL scales down and dithers itself
+gamma = 1.7           # midtone darkening so thin lines survive TRMNL's dithering
 
 [trmnl.style]         # shared by every layout below unless it overrides
 title_nudge = 0

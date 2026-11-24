@@ -1,6 +1,12 @@
 """Render the wallpaper set for the TRMNL e-ink display (original model, 800x480,
 4 grays), one image per TRMNL layout.
 
+The images go to TRMNL's Image Display plugin, which scales and dithers every
+image itself. So they are full grayscale (pre-quantized pixels just get
+re-dithered into speckle) and rendered at `supersample` x the slot size (TRMNL
+scales down more cleanly than up). Midtones are darkened by `gamma` so thin
+lines stay solid after TRMNL's dithering.
+
 Usage:
     python src/trmnl.py              # build everything in patents.toml
     python src/trmnl.py US730918A    # build only the listed patents
@@ -14,26 +20,38 @@ drawing largest: "stack" (caption under the drawing) or "side" (caption in a
 column beside it, on the left by default).
 
 Output:
-    output/trmnl/<layout>/<slug>.png   2-bit grayscale PNG, exact slot size
+    output/trmnl/<layout>/<slug>.png   8-bit grayscale PNG, supersample x slot size
     output/trmnl/contact-<layout>.png  contact sheet per layout, for review
 """
 from __future__ import annotations
 
 import json
 import math
-import struct
 import sys
 import tomllib
-import zlib
 from pathlib import Path
 
 from PIL import Image, ImageDraw
 
 from build import (CACHE, OUT, ROOT, caption_block, caption_text, clean_drawing, contact_sheet, fit_drawing,
-                   font, quantize, set_title, slug)
+                   font, set_title, slug)
 
 TRMNL_OUT = OUT / "trmnl"
-SIZE_LIMIT = 90_000  # bytes; the original TRMNL's firmware won't draw a larger PNG
+# Layout keys measured in pixels; these scale with `supersample`.
+PIXEL_KEYS = {"width", "height", "margin", "header_size", "title_size", "title_min_size", "inventor_size",
+              "caption_gap", "rule_gap", "line_gap", "side_line_gap", "title_nudge", "header_nudge",
+              "rule_width", "side_gap", "side_min", "side_max"}
+
+
+def scaled(st: dict, k: int) -> dict:
+    out = {key: (v * k if key in PIXEL_KEYS else v) for key, v in st.items()}
+    out["rule_thickness"] = k
+    return out
+
+
+def darken(im: Image.Image, gamma: float) -> Image.Image:
+    """Darken midtones (v -> 255 * (v/255)^gamma); black and white stay put."""
+    return im.point([round(255 * (v / 255) ** gamma) for v in range(256)])
 
 
 def side_min_width(meta: dict, entry: dict, st: dict, limit: int) -> int:
@@ -52,7 +70,7 @@ def side_min_width(meta: dict, entry: dict, st: dict, limit: int) -> int:
     return min(w, limit)
 
 
-def compose(clean: Image.Image, entry: dict, meta: dict, st: dict) -> Image.Image:
+def compose(clean: Image.Image, entry: dict, meta: dict, st: dict, supersample: int = 1) -> Image.Image:
     W, H, m = st["width"], st["height"], st["margin"]
     arrangements = st.get("arrangements", ["stack", "side"])
     options = []  # (score, kind, box_w, box_h, cap_w, cap_h, draw_caption)
@@ -81,7 +99,7 @@ def compose(clean: Image.Image, entry: dict, meta: dict, st: dict) -> Image.Imag
     if not options:
         raise ValueError(f"{entry['patent']}: caption doesn't fit the {W}x{H} layout")
     _, kind, bw, bh, cap_w, cap_h, draw_caption = max(options, key=lambda o: o[0])
-    drawing = fit_drawing(clean, entry, bw, bh)
+    drawing = fit_drawing(clean, entry, bw, bh, supersample)
 
     canvas = Image.new("L", (W, H), 255)
     d = ImageDraw.Draw(canvas)
@@ -115,30 +133,6 @@ def compose(clean: Image.Image, entry: dict, meta: dict, st: dict) -> Image.Imag
     return canvas
 
 
-def save_png_2bit(im: Image.Image, path: Path) -> int:
-    """Write a 2-bit grayscale PNG (color type 0, depth 2), the format TRMNL's own
-    ImageMagick pipeline produces for 4-gray devices. `im` must already be
-    quantized to 0/85/170/255. Returns the file size."""
-    w, h = im.size
-    px = im.load()
-    raw = bytearray()
-    for y in range(h):
-        row = bytearray((w * 2 + 7) // 8)
-        for x in range(w):
-            row[x >> 2] |= min(3, round(px[x, y] / 85)) << (6 - (x & 3) * 2)
-        raw += b"\x00" + row  # filter type 0 per scanline
-
-    def chunk(kind: bytes, data: bytes) -> bytes:
-        return struct.pack(">I", len(data)) + kind + data + struct.pack(">I", zlib.crc32(kind + data))
-
-    data = (b"\x89PNG\r\n\x1a\n"
-            + chunk(b"IHDR", struct.pack(">IIBBBBB", w, h, 2, 0, 0, 0, 0))
-            + chunk(b"IDAT", zlib.compress(bytes(raw), 9))
-            + chunk(b"IEND", b""))
-    path.write_bytes(data)
-    return len(data)
-
-
 def main(argv: list[str]) -> None:
     cfg = tomllib.loads((ROOT / "patents.toml").read_text())
     trmnl = cfg["trmnl"]
@@ -148,8 +142,8 @@ def main(argv: list[str]) -> None:
     for name in layouts:
         (TRMNL_OUT / name).mkdir(parents=True, exist_ok=True)
 
+    ss, gamma = trmnl.get("supersample", 2), trmnl.get("gamma", 1.7)
     built: dict[str, list[Image.Image]] = {name: [] for name in layouts}
-    too_big = []
     for e in entries:
         meta_path = CACHE / e["patent"] / "meta.json"
         if not meta_path.exists():
@@ -159,20 +153,17 @@ def main(argv: list[str]) -> None:
         clean = clean_drawing(CACHE / e["patent"] / f"sheet-{e.get('sheet', 0):02d}.png", e)
         name = slug(meta, e)
         for layout, st in layouts.items():
-            im = quantize(compose(clean, e, meta, st), trmnl.get("levels", 4))
-            size = save_png_2bit(im, TRMNL_OUT / layout / f"{name}.png")
-            if size > SIZE_LIMIT:
-                too_big.append(f"{layout}/{name}.png ({size:,} bytes)")
+            im = darken(compose(clean, e, meta, scaled(st, ss), ss), gamma)
+            im.save(TRMNL_OUT / layout / f"{name}.png", optimize=True)
             built[layout].append(im)
         print(f"built {name}")
 
     if not argv:
         for layout, ims in built.items():
             if ims:
-                contact_sheet(ims, TRMNL_OUT / f"contact-{layout}.png", cols=4, t=0.5 if ims[0].width > 600 else 1.0)
+                contact_sheet(ims, TRMNL_OUT / f"contact-{layout}.png", cols=4,
+                              t=(0.5 if ims[0].width > 600 * ss else 1.0) / ss)
         print(f"{len(entries)} patents x {len(layouts)} layouts -> {TRMNL_OUT}")
-    for f in too_big:
-        print(f"WARNING: over the {SIZE_LIMIT:,}-byte TRMNL limit: {f}")
 
 
 if __name__ == "__main__":
