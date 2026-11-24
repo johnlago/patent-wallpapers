@@ -75,7 +75,7 @@ make build      # render output/{2bpp,gray-2000,preview}/ and output/contact-she
   Caption sizes and spacing are under `[style]` in `patents.toml`. Lines are placed
   by measured cap height and baseline, so the gaps there are the gaps you see.
   Titles never run past two lines: if a title won't fit, its size steps down
-  toward `title_min_size`. A two-line split aims for a first line about 75% as
+  toward `title_min_size`. A two-line split aims for a first line about 60% as
   wide as the second, so marginal cases break earlier rather than later.
 
 ### Adding a wallpaper
