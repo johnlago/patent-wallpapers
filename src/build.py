@@ -129,17 +129,42 @@ def quantize(im: Image.Image, levels: int) -> Image.Image:
 # ---------------------------------------------------------------- captions
 
 def wrap(text: str, f: ImageFont.FreeTypeFont, width: int) -> list[str]:
-    lines, cur = [], ""
-    for word in text.split():
-        trial = f"{cur} {word}".strip()
-        if f.getlength(trial) <= width or not cur:
-            cur = trial
+    """Balanced wrap: use as few lines as greedy wrapping would, but choose the
+    breaks that minimise the summed squared slack of every line (last included),
+    so lines come out evenly long with no orphan words or stubby first lines."""
+    words = text.split()
+    n, cur = 1, ""
+    for w in words:  # greedy pass just to count lines
+        trial = f"{cur} {w}".strip()
+        if f.getlength(trial) > width and cur:
+            n, cur = n + 1, w
         else:
-            lines.append(cur)
-            cur = word
-    if cur:
-        lines.append(cur)
-    return lines
+            cur = trial
+    if n == 1:
+        return [text]
+
+    from functools import lru_cache
+
+    @lru_cache(None)
+    def best(i: int, k: int) -> tuple[float, tuple[str, ...]]:
+        # lay out words[i:] in exactly k lines -> (cost, lines)
+        if k == 1:
+            line = " ".join(words[i:])
+            lw = f.getlength(line)
+            return ((width - lw) ** 2 if lw <= width else float("inf")), (line,)
+        result = (float("inf"), ())
+        for j in range(i + 1, len(words) - k + 2):
+            line = " ".join(words[i:j])
+            lw = f.getlength(line)
+            if lw > width:
+                break
+            rest_cost, rest = best(j, k - 1)
+            cand = ((width - lw) ** 2 + rest_cost, (line,) + rest)
+            if cand[0] < result[0]:
+                result = cand
+        return result
+
+    return list(best(0, n)[1])
 
 
 def pretty_number(number: str) -> str:
