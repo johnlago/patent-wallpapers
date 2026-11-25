@@ -94,6 +94,8 @@ RSpec.describe 'Patent of the Moment' do
           expect(lines['title']).to all(eq 1)
           expect(lines['titleFits']).to be true
           expect(lines['inside']).to be true
+          # The caption was painted onto its antialiased canvas (see shared.liquid).
+          expect(screen.evaluate("document.querySelector('.pw-caption').classList.contains('pw-painted')")).to be true
           expect(lines['inventors']).not_to be_empty if patent['inventors'].to_s != ''
 
           if (dir = ENV['CONTACT_DIR'])

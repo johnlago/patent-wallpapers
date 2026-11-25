@@ -356,6 +356,17 @@ TRMNL's server behaviour.
   `plugin-contact`, `plugin-serve`). The project mounts the repo root, so tests
   and previews read `output/plugin/` through `asset_overrides`.
 
+### Found on the device
+
+- **TRMNL's renderer doesn't antialias page text.** The first device render had
+  hard black/white caption edges on the 4-gray OG, while drawings kept gray
+  edges. trmnlp's Firefox previews smooth text, so they didn't show this. Fix:
+  `shared.liquid` paints each caption line onto a canvas at 4x, scales it down
+  and darkens it (gamma 1.7, as in the Image Display captions). The DOM text
+  stays for layout and is hidden once painted, so a failed paint falls back to
+  plain text. Inventor lines are pre-broken in the manifest (`i`), so every line
+  is a fixed string. Confirmed clean on the device 2026-11-24.
+
 ### Still to confirm on the device (needs a push to the TRMNL account)
 
 1. A changing `pick_id` triggers a new screen on every refresh.
