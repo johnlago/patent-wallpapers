@@ -74,15 +74,15 @@ def layout_style(st: dict) -> dict:
 def plan_layouts(clean, entry: dict, meta: dict, layouts: dict) -> dict:
     """Per-layout plan for the markup, in the layout's own pixels at 1x:
     a = arrangement, d = drawing box [x, y, w, h], c = caption box [x, y, w, h],
-    h = patent-number line(s), t = title lines, ts = title size."""
-    from build import caption_text, font, set_title
+    h = patent-number line(s), t = title lines, ts = title size, i = inventor lines."""
+    from build import caption_text, font, set_title, wrap
     from trmnl import plan
 
     out = {}
     for name, st in layouts.items():
         p = plan(clean, entry, meta, st)
         used = p["style"]
-        header, number, year, title, _ = caption_text(meta, entry, used)
+        header, number, year, title, inventor = caption_text(meta, entry, used)
         # Same choices caption_block makes for the header and title.
         hl = [header]
         if used.get("header_wrap", True) and font("regular", used["header_size"]).getlength(header) > p["cap_w"]:
@@ -91,7 +91,8 @@ def plan_layouts(clean, entry: dict, meta: dict, layouts: dict) -> dict:
                            used.get("max_title_lines", 2))
         (dx, dy), (cx, cy) = p["drawing_xy"], p["caption_xy"]
         out[name] = {"a": p["kind"], "d": [dx, dy, p["drawing"].width, p["drawing"].height],
-                     "c": [cx, cy, p["cap_w"], p["cap_h"]], "h": hl, "t": tl, "ts": ts}
+                     "c": [cx, cy, p["cap_w"], p["cap_h"]], "h": hl, "t": tl, "ts": ts,
+                     "i": wrap(inventor, font("regular", used["inventor_size"]), p["cap_w"]) if inventor else []}
     return out
 
 
